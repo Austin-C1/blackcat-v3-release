@@ -921,7 +921,7 @@ const CryptoTailMonitor: React.FC = () => {
     }
     
     // 最大数量 = 余额 / 价格，保留2位小数
-    let maxSize = Math.floor((balance / price) * 100) / 100
+    const maxSize = Math.floor((balance / price) * 100) / 100
     
     // 确保至少 1 张
     if (maxSize < 1) {

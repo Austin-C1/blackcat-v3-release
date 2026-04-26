@@ -158,7 +158,7 @@ const ProxySettings: React.FC = () => {
             name="host"
             rules={[
               { required: true, message: t('proxySettings.hostRequired') || '请输入代理主机地址' },
-              { pattern: /^[\w\.-]+$/, message: t('proxySettings.hostInvalid') || '请输入有效的主机地址' }
+              { pattern: /^[\w.-]+$/, message: t('proxySettings.hostInvalid') || '请输入有效的主机地址' }
             ]}
           >
             <Input placeholder={t('proxySettings.hostPlaceholder') || '例如：127.0.0.1 或 proxy.example.com'} />
