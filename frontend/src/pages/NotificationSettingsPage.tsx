@@ -96,7 +96,7 @@ const COPY_TRADING_NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   success: '成功订单',
   failed: '失败订单',
   filtered: '过滤订单',
-  monitor: '监控提醒',
+  monitor: '监控提醒（含同向/反向）',
 }
 
 const normalizeFilterValues = (values?: string[] | string): string[] => {

@@ -187,6 +187,36 @@ class TelegramNotificationServiceImplementationTest {
     }
 
     @Test
+    fun `same side and opposite monitor notifications should use robot category filters`() {
+        val source = Files.readString(sourcePath)
+        val leaderMonitorSource = Files.readString(leaderMonitorAlertSourcePath)
+
+        val sameSideSection = source.substringAfter("suspend fun sendMonitorSameSideNotification(")
+            .substringBefore("suspend fun sendMonitorOppositeNotification(")
+        val oppositeSection = source.substringAfter("suspend fun sendMonitorOppositeNotification(")
+            .substringBefore("private suspend fun sendTelegramMessage(")
+        val publishMarketUpdatesSection = leaderMonitorSource.substringAfter("private suspend fun publishMarketUpdates(")
+            .substringBefore("private fun captureBaselineForMarket(")
+
+        assertTrue(
+            sameSideSection.contains("messageCategories: Collection<String?>") &&
+                sameSideSection.contains("sendCopyTradingMessage(message, messageCategories, \"monitor\", TelegramNotificationAudience.MONITOR_ONLY)"),
+            "Same-side monitor notifications should route through the robot category filters"
+        )
+
+        assertTrue(
+            oppositeSection.contains("messageCategories: Collection<String?>") &&
+                oppositeSection.contains("sendCopyTradingMessage(message, messageCategories, \"monitor\", TelegramNotificationAudience.MONITOR_ONLY)"),
+            "Opposite-side monitor notifications should route through the robot category filters"
+        )
+
+        assertTrue(
+            publishMarketUpdatesSection.contains("messageCategories = alert.messageCategories"),
+            "Leader monitor same/opposite alerts should pass their categories to Telegram routing"
+        )
+    }
+
+    @Test
     fun `leader monitor flow should publish a trade detection push notification`() {
         val source = Files.readString(leaderMonitorAlertSourcePath)
         val processTradeSection = source.substringAfter("suspend fun processTrade(leaderId: Long, trade: TradeResponse)")

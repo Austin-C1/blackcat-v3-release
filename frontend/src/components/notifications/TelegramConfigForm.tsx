@@ -23,7 +23,7 @@ const copyTradingNotificationTypeOptions = [
   { label: '成功订单', value: 'success' },
   { label: '失败订单', value: 'failed' },
   { label: '过滤订单', value: 'filtered' },
-  { label: '监控提醒', value: 'monitor' },
+  { label: '监控提醒（含同向/反向）', value: 'monitor' },
 ]
 
 const renderInstruction = (text: string): ReactNode[] => {
@@ -178,7 +178,7 @@ const TelegramConfigForm: React.FC<TelegramConfigFormProps> = ({ form }) => {
       <Form.Item
         label="消息类型"
         name={['config', 'copyTradingNotificationTypes']}
-        extra="不选择表示接收全部类型；只想收监控消息时选择“监控提醒”。"
+        extra="不选择表示接收全部类型；只想收监控消息时选择“监控提醒”，同向/反向也会按监控分类筛选。"
       >
         <Select
           mode="multiple"

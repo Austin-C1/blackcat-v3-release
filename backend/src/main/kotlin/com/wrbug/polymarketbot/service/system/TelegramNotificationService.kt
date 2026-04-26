@@ -81,12 +81,21 @@ internal fun telegramConfigMatchesCopyTradingRoute(
     telegramConfig: TelegramConfigData,
     category: String?,
     notificationType: String
+): Boolean = telegramConfigMatchesCopyTradingRoute(telegramConfig, listOf(category), notificationType)
+
+internal fun telegramConfigMatchesCopyTradingRoute(
+    telegramConfig: TelegramConfigData,
+    categories: Collection<String?>,
+    notificationType: String
 ): Boolean {
+    val routeCategories = categories.ifEmpty { listOf(null) }
     return CopyTradingTelegramRoute(
         telegramConfigId = 0L,
         categories = telegramConfig.copyTradingCategories,
         notificationTypes = telegramConfig.copyTradingNotificationTypes
-    ).matches(category, notificationType)
+    ).let { route ->
+        routeCategories.any { category -> route.matches(category, notificationType) }
+    }
 }
 
 internal fun filterMarketBettingQueryTelegramConfigs(configs: List<NotificationConfigDto>): List<NotificationConfigDto> {
@@ -869,7 +878,16 @@ class TelegramNotificationService(
         notificationType: String,
         fallbackAudience: TelegramNotificationAudience
     ) {
-        val routedConfigs = findCopyTradingRouteConfigs(category, notificationType, fallbackAudience)
+        sendCopyTradingMessage(message, listOf(category), notificationType, fallbackAudience)
+    }
+
+    private suspend fun sendCopyTradingMessage(
+        message: String,
+        categories: Collection<String?>,
+        notificationType: String,
+        fallbackAudience: TelegramNotificationAudience
+    ) {
+        val routedConfigs = findCopyTradingRouteConfigs(categories, notificationType, fallbackAudience)
         if (routedConfigs != null) {
             sendMessageToConfigs(message, routedConfigs)
             return
@@ -879,7 +897,7 @@ class TelegramNotificationService(
     }
 
     private suspend fun findCopyTradingRouteConfigs(
-        category: String?,
+        categories: Collection<String?>,
         notificationType: String,
         fallbackAudience: TelegramNotificationAudience
     ): List<NotificationConfigDto>? = withContext(Dispatchers.IO) {
@@ -895,7 +913,7 @@ class TelegramNotificationService(
         if (hasRobotFilters) {
             return@withContext audienceConfigs.filter { config ->
                 val telegramConfig = config.config as? NotificationConfigData.Telegram ?: return@filter false
-                telegramConfigMatchesCopyTradingRoute(telegramConfig.data, category, notificationType)
+                telegramConfigMatchesCopyTradingRoute(telegramConfig.data, categories, notificationType)
             }
         }
 
@@ -1038,7 +1056,8 @@ class TelegramNotificationService(
         marketLink: String,
         outcome: String,
         sameSidePositionReport: String,
-        sameSideCount: Int
+        sameSideCount: Int,
+        messageCategories: Collection<String?> = emptyList()
     ) {
         val message = notificationTemplateService.renderTemplate(
             "MONITOR_SAME_SIDE",
@@ -1051,7 +1070,7 @@ class TelegramNotificationService(
                 "time" to DateUtils.formatDateTime()
             )
         )
-        sendMonitorMessage(message)
+        sendCopyTradingMessage(message, messageCategories, "monitor", TelegramNotificationAudience.MONITOR_ONLY)
     }
 
     suspend fun sendMonitorOppositeNotification(
@@ -1061,7 +1080,8 @@ class TelegramNotificationService(
         sideAPositionReport: String,
         outcomeB: String,
         sideBPositionReport: String,
-        hedgePositionReport: String
+        hedgePositionReport: String,
+        messageCategories: Collection<String?> = emptyList()
     ) {
         val message = notificationTemplateService.renderTemplate(
             "MONITOR_OPPOSITE_SIDE",
@@ -1076,7 +1096,7 @@ class TelegramNotificationService(
                 "time" to DateUtils.formatDateTime()
             )
         )
-        sendMonitorMessage(message)
+        sendCopyTradingMessage(message, messageCategories, "monitor", TelegramNotificationAudience.MONITOR_ONLY)
     }
 
     private suspend fun sendTelegramMessage(config: TelegramConfigData, message: String): Boolean {
