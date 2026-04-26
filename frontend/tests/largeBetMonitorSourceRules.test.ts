@@ -57,6 +57,8 @@ describe('large bet monitor source rules', () => {
     expect(editSource).not.toContain('消息筛选')
     expect(notificationSettingsSource).toContain('copyTradingCategories')
     expect(notificationSettingsSource).toContain('copyTradingNotificationTypes')
+    expect(notificationSettingsSource).toContain('handleUpdateRobotFilters')
+    expect(notificationSettingsSource).toContain('renderFilterSelect')
     expect(telegramFormSource).toContain('监控分类')
     expect(telegramFormSource).toContain('消息类型')
   })

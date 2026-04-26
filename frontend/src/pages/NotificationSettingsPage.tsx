@@ -9,6 +9,7 @@ import {
   Modal,
   Popconfirm,
   Row,
+  Select,
   Space,
   Switch,
   Table,
@@ -97,6 +98,24 @@ const COPY_TRADING_NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   failed: '失败订单',
   filtered: '过滤订单',
   monitor: '监控提醒（含同向/反向）',
+}
+
+const COPY_TRADING_CATEGORY_OPTIONS = Object.entries(COPY_TRADING_CATEGORY_LABELS).map(([value, label]) => ({
+  label,
+  value,
+}))
+
+const COPY_TRADING_NOTIFICATION_TYPE_OPTIONS = Object.entries(COPY_TRADING_NOTIFICATION_TYPE_LABELS).map(([value, label]) => ({
+  label,
+  value,
+}))
+
+type RobotFilterField = 'copyTradingCategories' | 'copyTradingNotificationTypes'
+
+type RobotConfigOverrides = {
+  monitorModeEnabled?: boolean
+  copyTradingCategories?: string[]
+  copyTradingNotificationTypes?: string[]
 }
 
 const normalizeFilterValues = (values?: string[] | string): string[] => {
@@ -272,7 +291,7 @@ const NotificationSettingsPage: React.FC = () => {
 
   const buildConfigPayload = (
     config: NotificationConfig,
-    monitorModeEnabled: boolean
+    overrides: RobotConfigOverrides = {}
   ): NotificationConfigUpdateRequest => {
     const telegramConfig = extractTelegramConfig(config)
 
@@ -284,10 +303,10 @@ const NotificationSettingsPage: React.FC = () => {
       config: {
         botToken: telegramConfig.botToken || '',
         chatIds: normalizeChatIds(telegramConfig.chatIds),
-        monitorModeEnabled,
+        monitorModeEnabled: overrides.monitorModeEnabled ?? Boolean(telegramConfig.monitorModeEnabled),
         marketBettingQueryEnabled: Boolean(telegramConfig.marketBettingQueryEnabled),
-        copyTradingCategories: normalizeFilterValues(telegramConfig.copyTradingCategories),
-        copyTradingNotificationTypes: normalizeFilterValues(telegramConfig.copyTradingNotificationTypes),
+        copyTradingCategories: overrides.copyTradingCategories ?? normalizeFilterValues(telegramConfig.copyTradingCategories),
+        copyTradingNotificationTypes: overrides.copyTradingNotificationTypes ?? normalizeFilterValues(telegramConfig.copyTradingNotificationTypes),
       },
     }
   }
@@ -322,7 +341,7 @@ const NotificationSettingsPage: React.FC = () => {
 
   const handleToggleMonitorMode = async (config: NotificationConfig, monitorModeEnabled: boolean) => {
     try {
-      const response = await apiService.notifications.update(buildConfigPayload(config, monitorModeEnabled))
+      const response = await apiService.notifications.update(buildConfigPayload(config, { monitorModeEnabled }))
       if (response.data.code === 0) {
         message.success(
           monitorModeEnabled
@@ -335,6 +354,29 @@ const NotificationSettingsPage: React.FC = () => {
       }
     } catch (error) {
       showApiError(error, t('notificationSettings.monitorModeUpdateFailed'))
+    }
+  }
+
+  const handleUpdateRobotFilters = async (
+    config: NotificationConfig,
+    field: RobotFilterField,
+    values: string[]
+  ) => {
+    const overrides: RobotConfigOverrides = {
+      [field]: normalizeFilterValues(values),
+    }
+
+    try {
+      const response = await apiService.notifications.update(buildConfigPayload(config, overrides))
+      if (response.data.code === 0) {
+        message.success(t('notificationSettings.updateSuccess'))
+        fetchConfigs()
+      } else {
+        message.error(response.data.msg || t('notificationSettings.updateFailed'))
+      }
+    } catch (error) {
+      showApiError(error, t('notificationSettings.updateFailed'))
+      fetchConfigs()
     }
   }
 
@@ -610,20 +652,28 @@ const NotificationSettingsPage: React.FC = () => {
     ),
   }))
 
-  const renderFilterTags = (values: string[] | undefined, labels: Record<string, string>) => {
-    const normalized = normalizeFilterValues(values)
-    if (normalized.length === 0) {
-      return <Text type="secondary">全部</Text>
-    }
+  const renderFilterSelect = (
+    record: NotificationConfig,
+    field: RobotFilterField,
+    options: { label: string; value: string }[],
+    placeholder: string
+  ) => {
+    const telegramConfig = extractTelegramConfig(record)
+    const value = normalizeFilterValues(telegramConfig[field])
 
     return (
-      <Space size={[4, 4]} wrap>
-        {normalized.map((value) => (
-          <Tag key={value} style={{ margin: 0 }}>
-            {labels[value] || value}
-          </Tag>
-        ))}
-      </Space>
+      <Select
+        mode="multiple"
+        allowClear
+        size="small"
+        value={value}
+        options={options}
+        placeholder={placeholder}
+        maxTagCount="responsive"
+        style={{ minWidth: isMobile ? 120 : 150 }}
+        popupMatchSelectWidth={false}
+        onChange={(nextValues) => handleUpdateRobotFilters(record, field, nextValues)}
+      />
     )
   }
 
@@ -666,14 +716,14 @@ const NotificationSettingsPage: React.FC = () => {
       title: '监控分类',
       key: 'copyTradingCategories',
       render: (_: unknown, record: NotificationConfig) => (
-        renderFilterTags(extractTelegramConfig(record).copyTradingCategories, COPY_TRADING_CATEGORY_LABELS)
+        renderFilterSelect(record, 'copyTradingCategories', COPY_TRADING_CATEGORY_OPTIONS, '全部分类')
       ),
     },
     {
       title: '消息类型',
       key: 'copyTradingNotificationTypes',
       render: (_: unknown, record: NotificationConfig) => (
-        renderFilterTags(extractTelegramConfig(record).copyTradingNotificationTypes, COPY_TRADING_NOTIFICATION_TYPE_LABELS)
+        renderFilterSelect(record, 'copyTradingNotificationTypes', COPY_TRADING_NOTIFICATION_TYPE_OPTIONS, '全部类型')
       ),
     },
     {
