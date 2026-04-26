@@ -163,6 +163,14 @@ class NotificationConfigService(
         require(marketBettingQueryEnabled == null || marketBettingQueryEnabled is Boolean) {
             "marketBettingQueryEnabled must be a boolean"
         }
+        requireConfigStringList(config["copyTradingCategories"], "copyTradingCategories")
+        requireConfigStringList(config["copyTradingNotificationTypes"], "copyTradingNotificationTypes")
+    }
+
+    private fun requireConfigStringList(value: Any?, fieldName: String) {
+        require(value == null || value is List<*> || value is String) {
+            "$fieldName must be a list or a comma-separated string"
+        }
     }
 
     private fun entityToDto(entity: NotificationConfig): NotificationConfigDto {
@@ -192,12 +200,16 @@ class NotificationConfigService(
                     is String -> raw.equals("true", ignoreCase = true)
                     else -> false
                 }
+                val copyTradingCategories = parseStringList(configMap["copyTradingCategories"])
+                val copyTradingNotificationTypes = parseStringList(configMap["copyTradingNotificationTypes"])
                 NotificationConfigData.Telegram(
                     TelegramConfigData(
                         botToken = botToken,
                         chatIds = chatIds,
                         monitorModeEnabled = monitorModeEnabled,
-                        marketBettingQueryEnabled = marketBettingQueryEnabled
+                        marketBettingQueryEnabled = marketBettingQueryEnabled,
+                        copyTradingCategories = copyTradingCategories,
+                        copyTradingNotificationTypes = copyTradingNotificationTypes
                     )
                 )
             }
@@ -214,5 +226,18 @@ class NotificationConfigService(
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt
         )
+    }
+
+    private fun parseStringList(value: Any?): List<String> {
+        val rawItems = when (value) {
+            is List<*> -> value.mapNotNull { it?.toString() }
+            is String -> value.split(",")
+            else -> emptyList()
+        }
+
+        return rawItems
+            .map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() && it != "all" }
+            .distinct()
     }
 }

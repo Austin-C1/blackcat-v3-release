@@ -87,6 +87,26 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const TEST_NOTIFICATION_MESSAGE = '这是一条测试消息'
 
+const COPY_TRADING_CATEGORY_LABELS: Record<string, string> = {
+  sports: '体育',
+  crypto: '加密',
+}
+
+const COPY_TRADING_NOTIFICATION_TYPE_LABELS: Record<string, string> = {
+  success: '成功订单',
+  failed: '失败订单',
+  filtered: '过滤订单',
+  monitor: '监控提醒',
+}
+
+const normalizeFilterValues = (values?: string[] | string): string[] => {
+  const rawValues = Array.isArray(values) ? values : typeof values === 'string' ? values.split(',') : []
+  return rawValues
+    .map((value) => String(value).trim().toLowerCase())
+    .filter((value) => value && value !== 'all')
+    .filter((value, index, list) => list.indexOf(value) === index)
+}
+
 const NotificationSettingsPage: React.FC = () => {
   const { t } = useTranslation()
   const isMobile = useMediaQuery({ maxWidth: 768 })
@@ -222,6 +242,8 @@ const NotificationSettingsPage: React.FC = () => {
         chatIds: '',
         monitorModeEnabled: false,
         marketBettingQueryEnabled: false,
+        copyTradingCategories: [],
+        copyTradingNotificationTypes: [],
       },
     })
     setModalVisible(true)
@@ -241,6 +263,8 @@ const NotificationSettingsPage: React.FC = () => {
         chatIds,
         monitorModeEnabled: Boolean(telegramConfig.monitorModeEnabled),
         marketBettingQueryEnabled: Boolean(telegramConfig.marketBettingQueryEnabled),
+        copyTradingCategories: normalizeFilterValues(telegramConfig.copyTradingCategories),
+        copyTradingNotificationTypes: normalizeFilterValues(telegramConfig.copyTradingNotificationTypes),
       },
     })
     setModalVisible(true)
@@ -262,6 +286,8 @@ const NotificationSettingsPage: React.FC = () => {
         chatIds: normalizeChatIds(telegramConfig.chatIds),
         monitorModeEnabled,
         marketBettingQueryEnabled: Boolean(telegramConfig.marketBettingQueryEnabled),
+        copyTradingCategories: normalizeFilterValues(telegramConfig.copyTradingCategories),
+        copyTradingNotificationTypes: normalizeFilterValues(telegramConfig.copyTradingNotificationTypes),
       },
     }
   }
@@ -377,6 +403,8 @@ const NotificationSettingsPage: React.FC = () => {
           chatIds: normalizeChatIds(values.config.chatIds),
           monitorModeEnabled: Boolean(values.config.monitorModeEnabled),
           marketBettingQueryEnabled: editingConfig ? Boolean(extractTelegramConfig(editingConfig).marketBettingQueryEnabled) : false,
+          copyTradingCategories: normalizeFilterValues(values.config.copyTradingCategories),
+          copyTradingNotificationTypes: normalizeFilterValues(values.config.copyTradingNotificationTypes),
         },
       }
 
@@ -582,6 +610,23 @@ const NotificationSettingsPage: React.FC = () => {
     ),
   }))
 
+  const renderFilterTags = (values: string[] | undefined, labels: Record<string, string>) => {
+    const normalized = normalizeFilterValues(values)
+    if (normalized.length === 0) {
+      return <Text type="secondary">全部</Text>
+    }
+
+    return (
+      <Space size={[4, 4]} wrap>
+        {normalized.map((value) => (
+          <Tag key={value} style={{ margin: 0 }}>
+            {labels[value] || value}
+          </Tag>
+        ))}
+      </Space>
+    )
+  }
+
   const configColumns = [
     {
       title: t('notificationSettings.configName'),
@@ -615,6 +660,20 @@ const NotificationSettingsPage: React.FC = () => {
             onChange={(checked) => handleToggleMonitorMode(record, checked)}
           />
         </Tooltip>
+      ),
+    },
+    {
+      title: '监控分类',
+      key: 'copyTradingCategories',
+      render: (_: unknown, record: NotificationConfig) => (
+        renderFilterTags(extractTelegramConfig(record).copyTradingCategories, COPY_TRADING_CATEGORY_LABELS)
+      ),
+    },
+    {
+      title: '消息类型',
+      key: 'copyTradingNotificationTypes',
+      render: (_: unknown, record: NotificationConfig) => (
+        renderFilterTags(extractTelegramConfig(record).copyTradingNotificationTypes, COPY_TRADING_NOTIFICATION_TYPE_LABELS)
       ),
     },
     {

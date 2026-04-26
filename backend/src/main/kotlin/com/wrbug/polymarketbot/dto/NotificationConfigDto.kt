@@ -14,7 +14,9 @@ data class TelegramConfigData(
     val botToken: String,
     val chatIds: List<String>,
     val monitorModeEnabled: Boolean = false,
-    val marketBettingQueryEnabled: Boolean = false
+    val marketBettingQueryEnabled: Boolean = false,
+    val copyTradingCategories: List<String> = emptyList(),
+    val copyTradingNotificationTypes: List<String> = emptyList()
 )
 
 sealed class NotificationConfigData {

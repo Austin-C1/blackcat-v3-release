@@ -6,7 +6,6 @@ import com.wrbug.polymarketbot.api.PolymarketClobApi
 import com.wrbug.polymarketbot.dto.NotificationConfigData
 import com.wrbug.polymarketbot.dto.NotificationConfigDto
 import com.wrbug.polymarketbot.dto.TelegramConfigData
-import com.wrbug.polymarketbot.repository.CopyTradingRepository
 import com.wrbug.polymarketbot.repository.LargeBetMonitorConfigRepository
 import com.wrbug.polymarketbot.util.CategoryValidator
 import com.wrbug.polymarketbot.util.createClient
@@ -72,6 +71,22 @@ internal data class CopyTradingTelegramRoute(
         val typeMatches = notificationTypes.isEmpty() || normalizedType in notificationTypes.map { it.trim().lowercase() }
         return categoryMatches && typeMatches
     }
+}
+
+internal fun hasCopyTradingRouteFilters(telegramConfig: TelegramConfigData): Boolean {
+    return telegramConfig.copyTradingCategories.isNotEmpty() || telegramConfig.copyTradingNotificationTypes.isNotEmpty()
+}
+
+internal fun telegramConfigMatchesCopyTradingRoute(
+    telegramConfig: TelegramConfigData,
+    category: String?,
+    notificationType: String
+): Boolean {
+    return CopyTradingTelegramRoute(
+        telegramConfigId = 0L,
+        categories = telegramConfig.copyTradingCategories,
+        notificationTypes = telegramConfig.copyTradingNotificationTypes
+    ).matches(category, notificationType)
 }
 
 internal fun filterMarketBettingQueryTelegramConfigs(configs: List<NotificationConfigDto>): List<NotificationConfigDto> {
@@ -141,8 +156,7 @@ class TelegramNotificationService(
     private val objectMapper: ObjectMapper,
     private val messageSource: MessageSource,
     private val largeBetMonitorConfigRepository: LargeBetMonitorConfigRepository,
-    private val systemConfigService: SystemConfigService,
-    private val copyTradingRepository: CopyTradingRepository? = null
+    private val systemConfigService: SystemConfigService
 ) {
 
     private val logger = LoggerFactory.getLogger(TelegramNotificationService::class.java)
@@ -291,7 +305,7 @@ class TelegramNotificationService(
             calculateFailed = calculateFailed
         )
         val message = notificationTemplateService.renderTemplate("ORDER_SUCCESS", vars)
-        sendCopyTradingMessage(message, copyTradingId, messageCategory, "success", TelegramNotificationAudience.STANDARD)
+        sendCopyTradingMessage(message, messageCategory, "success", TelegramNotificationAudience.STANDARD)
     }
 
     suspend fun sendTestMessage(message: String, configId: Long?): Boolean {
@@ -379,7 +393,7 @@ class TelegramNotificationService(
             calculateFailed = calculateFailed
         )
         val message = notificationTemplateService.renderTemplate("ORDER_FAILED", vars)
-        sendCopyTradingMessage(message, copyTradingId, messageCategory, "failed", TelegramNotificationAudience.STANDARD)
+        sendCopyTradingMessage(message, messageCategory, "failed", TelegramNotificationAudience.STANDARD)
     }
 
     private fun buildOrderFailureVariables(
@@ -503,7 +517,7 @@ class TelegramNotificationService(
             calculateFailed = calculateFailed
         )
         val message = notificationTemplateService.renderTemplate("ORDER_FILTERED", vars)
-        sendCopyTradingMessage(message, copyTradingId, messageCategory, "filtered", TelegramNotificationAudience.STANDARD)
+        sendCopyTradingMessage(message, messageCategory, "filtered", TelegramNotificationAudience.STANDARD)
     }
 
     private fun buildOrderFilteredVariables(
@@ -851,13 +865,12 @@ class TelegramNotificationService(
 
     private suspend fun sendCopyTradingMessage(
         message: String,
-        copyTradingId: Long?,
         category: String?,
         notificationType: String,
         fallbackAudience: TelegramNotificationAudience
     ) {
-        val routedConfigs = findCopyTradingRouteConfigs(copyTradingId, category, notificationType)
-        if (copyTradingId != null && routedConfigs != null) {
+        val routedConfigs = findCopyTradingRouteConfigs(category, notificationType, fallbackAudience)
+        if (routedConfigs != null) {
             sendMessageToConfigs(message, routedConfigs)
             return
         }
@@ -866,52 +879,27 @@ class TelegramNotificationService(
     }
 
     private suspend fun findCopyTradingRouteConfigs(
-        copyTradingId: Long?,
         category: String?,
-        notificationType: String
+        notificationType: String,
+        fallbackAudience: TelegramNotificationAudience
     ): List<NotificationConfigDto>? = withContext(Dispatchers.IO) {
-        if (copyTradingId == null || copyTradingRepository == null) {
-            return@withContext null
+        val audienceConfigs = filterTelegramConfigsForAudience(
+            notificationConfigService.getEnabledConfigsByType("telegram"),
+            fallbackAudience,
+            largeBetAssignedTelegramConfigIds()
+        )
+        val hasRobotFilters = audienceConfigs.any { config ->
+            val telegramConfig = config.config as? NotificationConfigData.Telegram ?: return@any false
+            hasCopyTradingRouteFilters(telegramConfig.data)
         }
-
-        val copyTrading = copyTradingRepository.findById(copyTradingId).orElse(null) ?: return@withContext null
-        val routes = parseCopyTradingRoutes(copyTrading.notificationRoutes)
-        if (routes.isEmpty()) {
-            return@withContext null
-        }
-
-        val matchedConfigIds = routes
-            .filter { it.matches(category, notificationType) }
-            .map { it.telegramConfigId }
-            .toSet()
-
-        if (matchedConfigIds.isEmpty()) {
-            return@withContext emptyList()
-        }
-
-        notificationConfigService.getEnabledConfigsByType("telegram")
-            .filter { it.id in matchedConfigIds }
-    }
-
-    private fun parseCopyTradingRoutes(rawRoutes: String?): List<CopyTradingTelegramRoute> {
-        if (rawRoutes.isNullOrBlank()) {
-            return emptyList()
-        }
-
-        return try {
-            val array = objectMapper.readTree(rawRoutes).takeIf { it.isArray } ?: return emptyList()
-            array.mapNotNull { item ->
-                val telegramConfigId = item["telegramConfigId"]?.asLong() ?: return@mapNotNull null
-                CopyTradingTelegramRoute(
-                    telegramConfigId = telegramConfigId,
-                    categories = item["categories"]?.mapNotNull { it.asText()?.trim()?.lowercase()?.takeIf(String::isNotEmpty) }.orEmpty(),
-                    notificationTypes = item["notificationTypes"]?.mapNotNull { it.asText()?.trim()?.lowercase()?.takeIf(String::isNotEmpty) }.orEmpty()
-                )
+        if (hasRobotFilters) {
+            return@withContext audienceConfigs.filter { config ->
+                val telegramConfig = config.config as? NotificationConfigData.Telegram ?: return@filter false
+                telegramConfigMatchesCopyTradingRoute(telegramConfig.data, category, notificationType)
             }
-        } catch (e: Exception) {
-            logger.warn("Failed to parse copy trading notification routes: {}", e.message)
-            emptyList()
         }
+
+        null
     }
 
     private fun sendMessageToConfigs(message: String, configs: List<NotificationConfigDto>) {
@@ -1042,7 +1030,7 @@ class TelegramNotificationService(
                 "time" to DateUtils.formatDateTime()
             )
         )
-        sendCopyTradingMessage(message, copyTradingId, messageCategory, "monitor", TelegramNotificationAudience.MONITOR_ONLY)
+        sendCopyTradingMessage(message, messageCategory, "monitor", TelegramNotificationAudience.MONITOR_ONLY)
     }
 
     suspend fun sendMonitorSameSideNotification(

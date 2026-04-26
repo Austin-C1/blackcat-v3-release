@@ -46,6 +46,36 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
+    fun `telegram config route filters should match category and notification type`() {
+        val config = TelegramConfigData(
+            botToken = "token",
+            chatIds = listOf("chat"),
+            monitorModeEnabled = true,
+            copyTradingCategories = listOf("sports"),
+            copyTradingNotificationTypes = listOf("monitor")
+        )
+
+        assertTrue(hasCopyTradingRouteFilters(config))
+        assertTrue(telegramConfigMatchesCopyTradingRoute(config, "体育", "monitor"))
+        assertFalse(telegramConfigMatchesCopyTradingRoute(config, "crypto", "monitor"))
+        assertFalse(telegramConfigMatchesCopyTradingRoute(config, "sports", "success"))
+    }
+
+    @Test
+    fun `telegram config route filters should treat empty filters as all`() {
+        val config = TelegramConfigData(
+            botToken = "token",
+            chatIds = listOf("chat"),
+            copyTradingCategories = emptyList(),
+            copyTradingNotificationTypes = emptyList()
+        )
+
+        assertFalse(hasCopyTradingRouteFilters(config))
+        assertTrue(telegramConfigMatchesCopyTradingRoute(config, "crypto", "success"))
+        assertTrue(telegramConfigMatchesCopyTradingRoute(config, "sports", "monitor"))
+    }
+
+    @Test
     fun `market betting query should use only enabled query bots`() {
         val configs = listOf(
             telegramConfig(id = 1, name = "query", monitorModeEnabled = false, marketBettingQueryEnabled = true),

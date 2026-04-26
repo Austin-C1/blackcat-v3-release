@@ -5,6 +5,8 @@ type TelegramConfigShape = {
   chatIds?: string[] | string
   monitorModeEnabled?: boolean
   marketBettingQueryEnabled?: boolean
+  copyTradingCategories?: string[]
+  copyTradingNotificationTypes?: string[]
 }
 
 export const extractTelegramConfig = (config: NotificationConfig): TelegramConfigShape => {

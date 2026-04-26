@@ -47,13 +47,17 @@ describe('large bet monitor source rules', () => {
     expect(pageSource).toContain('查询机器人')
   })
 
-  it('renders copy trading notification routes with robot and filters', () => {
+  it('moves copy trading notification filters to robot settings', () => {
     const addSource = readSource('../src/pages/CopyTradingOrders/AddModal.tsx')
     const editSource = readSource('../src/pages/CopyTradingOrders/EditModal.tsx')
+    const notificationSettingsSource = readSource('../src/pages/NotificationSettingsPage.tsx')
+    const telegramFormSource = readSource('../src/components/notifications/TelegramConfigForm.tsx')
 
-    expect(addSource).toContain('notificationRoutes')
-    expect(addSource).toContain('消息筛选')
-    expect(editSource).toContain('notificationRoutes')
-    expect(editSource).toContain('消息筛选')
+    expect(addSource).not.toContain('消息筛选')
+    expect(editSource).not.toContain('消息筛选')
+    expect(notificationSettingsSource).toContain('copyTradingCategories')
+    expect(notificationSettingsSource).toContain('copyTradingNotificationTypes')
+    expect(telegramFormSource).toContain('监控分类')
+    expect(telegramFormSource).toContain('消息类型')
   })
 })
