@@ -41,6 +41,16 @@ Assert-Contains `
 
 Assert-Contains `
     -Content $emptyPackageScript `
+    -Needle "CreateShortcut" `
+    -Message 'The one-click launcher must create a desktop shortcut for opening BlackCat after install.'
+
+Assert-Contains `
+    -Content $emptyPackageScript `
+    -Needle "6buR54yr5ZCv5YqoLmxuaw==" `
+    -Message 'The desktop shortcut must be named 黑猫启动.lnk.'
+
+Assert-Contains `
+    -Content $emptyPackageScript `
     -Needle "BLACKCAT_PACKAGE_DEFAULT_ADMIN_ENABLED" `
     -Message 'build-blackcat-empty-package.ps1 must preserve the packaged default admin config in generated packages.'
 

@@ -69,10 +69,11 @@ function Write-OneClickLauncher {
         [string]$Path
     )
 
-    $content = @'
+$content = @'
 @echo off
 setlocal
 cd /d "%~dp0"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$name=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('6buR54yr5ZCv5YqoLmxuaw==')); $desktop=[Environment]::GetFolderPath('Desktop'); $shortcut=Join-Path $desktop $name; $target=Join-Path '%~dp0' 'launch-blackcat.cmd'; $shell=New-Object -ComObject WScript.Shell; $link=$shell.CreateShortcut($shortcut); $link.TargetPath=$target; $link.WorkingDirectory='%~dp0'; $link.IconLocation=$target; $link.Save()"
 call "%~dp0launch-blackcat.cmd"
 '@
 
