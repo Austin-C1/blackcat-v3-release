@@ -405,6 +405,7 @@ export interface CopyTrading {
   configName?: string
   pushFailedOrders: boolean
   pushFilteredOrders: boolean
+  notificationRoutes?: CopyTradingNotificationRoute[]
   maxMarketEndDate?: number
   followRules?: FollowAmountRule[]
   createdAt: number
@@ -449,7 +450,14 @@ export interface CopyTradingCreateRequest {
   configName?: string
   pushFailedOrders?: boolean
   pushFilteredOrders?: boolean
+  notificationRoutes?: CopyTradingNotificationRoute[]
   maxMarketEndDate?: number
+}
+
+export interface CopyTradingNotificationRoute {
+  telegramConfigId: number
+  categories: string[]
+  notificationTypes: string[]
 }
 
 export interface CopyTradingCreateFormValues {
@@ -459,6 +467,7 @@ export interface CopyTradingCreateFormValues {
   supportSell?: boolean
   pushFailedOrders?: boolean
   pushFilteredOrders?: boolean
+  notificationRoutes?: CopyTradingNotificationRoute[]
 }
 
 /**
@@ -488,6 +497,7 @@ export interface CopyTradingUpdateRequest {
   configName?: string
   pushFailedOrders?: boolean
   pushFilteredOrders?: boolean
+  notificationRoutes?: CopyTradingNotificationRoute[]
   maxMarketEndDate?: number
 }
 
@@ -496,6 +506,7 @@ export interface CopyTradingEditFormValues {
   supportSell?: boolean
   pushFailedOrders?: boolean
   pushFilteredOrders?: boolean
+  notificationRoutes?: CopyTradingNotificationRoute[]
 }
 
 /**
@@ -1076,6 +1087,7 @@ export interface NotificationConfig {
     botToken?: string  // Telegram Bot Token
     chatIds?: string[]  // Telegram Chat IDs
     monitorModeEnabled?: boolean
+    marketBettingQueryEnabled?: boolean
     [key: string]: any  // 其他配置字段
   }
   createdAt?: number
@@ -1093,6 +1105,7 @@ export interface NotificationConfigRequest {
     botToken?: string
     chatIds?: string[] | string  // 支持数组或逗号分隔的字符串
     monitorModeEnabled?: boolean
+    marketBettingQueryEnabled?: boolean
     [key: string]: any
   }
 }
@@ -1132,6 +1145,7 @@ export interface NotificationConfigUpdateRequest {
     botToken?: string
     chatIds?: string[] | string
     monitorModeEnabled?: boolean
+    marketBettingQueryEnabled?: boolean
     [key: string]: any
   }
 }

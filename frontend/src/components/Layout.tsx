@@ -10,7 +10,6 @@ import {
   AppstoreOutlined,
   AlertOutlined,
   CheckCircleOutlined,
-  FundOutlined,
   LinkOutlined,
   LogoutOutlined,
   MenuOutlined,
@@ -68,7 +67,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       keys.push('/copy-trading-management')
     }
 
-    if (path.startsWith('/system-settings')) {
+    if (path.startsWith('/system-settings') || path.startsWith('/market-betting-query')) {
       keys.push('/system-settings-management')
     }
 
@@ -118,11 +117,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       label: t('menu.positions') || '仓位管理',
     },
     {
-      key: '/market-betting-query',
-      icon: <FundOutlined />,
-      label: '盘口投注额查询',
-    },
-    {
       key: '/large-bet-monitor',
       icon: <AlertOutlined />,
       label: t('menu.largeBetMonitor') || '大额投注监控',
@@ -146,6 +140,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           key: '/system-settings/notification',
           icon: <NotificationOutlined />,
           label: t('menu.notifications') || '消息通知',
+        },
+        {
+          key: '/market-betting-query',
+          icon: <NotificationOutlined />,
+          label: '盘口投注额查询',
         },
         {
           key: '/system-settings/rpc-nodes',

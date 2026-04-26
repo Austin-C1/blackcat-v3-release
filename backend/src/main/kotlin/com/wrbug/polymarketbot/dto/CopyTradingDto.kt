@@ -27,6 +27,7 @@ data class CopyTradingCreateRequest(
     val configName: String? = null,
     val pushFailedOrders: Boolean? = null,
     val pushFilteredOrders: Boolean? = null,
+    val notificationRoutes: List<CopyTradingNotificationRouteDto>? = null,
     val maxMarketEndDate: Long? = null
 )
 
@@ -55,7 +56,14 @@ data class CopyTradingUpdateRequest(
     val configName: String? = null,
     val pushFailedOrders: Boolean? = null,
     val pushFilteredOrders: Boolean? = null,
+    val notificationRoutes: List<CopyTradingNotificationRouteDto>? = null,
     val maxMarketEndDate: Long? = null
+)
+
+data class CopyTradingNotificationRouteDto(
+    val telegramConfigId: Long,
+    val categories: List<String> = emptyList(),
+    val notificationTypes: List<String> = emptyList()
 )
 
 data class CopyTradingListRequest(
@@ -121,6 +129,7 @@ data class CopyTradingDto(
     val configName: String? = null,
     val pushFailedOrders: Boolean = false,
     val pushFilteredOrders: Boolean = false,
+    val notificationRoutes: List<CopyTradingNotificationRouteDto> = emptyList(),
     val maxMarketEndDate: Long? = null,
     val followRules: List<FollowAmountRuleDto> = emptyList(),
     val createdAt: Long,

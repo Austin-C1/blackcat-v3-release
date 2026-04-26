@@ -73,7 +73,7 @@ describe('frontend source rules', () => {
     const viteConfig = readSource('../vite.config.ts')
     const cryptoTailPage = readSource('../src/pages/CryptoTailStrategyList.tsx')
 
-    expect(packageJson).toContain('"name": "blackcat-v1-frontend"')
+    expect(packageJson).toContain('"name": "blackcat-v3-frontend"')
     expect(packageJson).not.toContain('"name": "polyhermes-frontend"')
 
     expect(viteConfig).not.toContain('https://github.com/WrBug/PolyHermes')

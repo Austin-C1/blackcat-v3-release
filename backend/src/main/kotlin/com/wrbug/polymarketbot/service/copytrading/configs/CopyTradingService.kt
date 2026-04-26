@@ -1,12 +1,14 @@
 package com.wrbug.polymarketbot.service.copytrading.configs
 
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.wrbug.polymarketbot.dto.AccountTemplateDto
 import com.wrbug.polymarketbot.dto.AccountTemplatesResponse
 import com.wrbug.polymarketbot.dto.CopyTradingCreateRequest
 import com.wrbug.polymarketbot.dto.CopyTradingDto
 import com.wrbug.polymarketbot.dto.CopyTradingListRequest
 import com.wrbug.polymarketbot.dto.CopyTradingListResponse
+import com.wrbug.polymarketbot.dto.CopyTradingNotificationRouteDto
 import com.wrbug.polymarketbot.dto.CopyTradingUpdateRequest
 import com.wrbug.polymarketbot.dto.CopyTradingUpdateStatusRequest
 import com.wrbug.polymarketbot.dto.FollowAmountRuleDto
@@ -99,6 +101,7 @@ class CopyTradingService(
                 configName = configName,
                 pushFailedOrders = request.pushFailedOrders ?: false,
                 pushFilteredOrders = config.pushFilteredOrders,
+                notificationRoutes = convertNotificationRoutesToJson(request.notificationRoutes),
                 maxMarketEndDate = config.maxMarketEndDate
             )
 
@@ -160,6 +163,11 @@ class CopyTradingService(
                 configName = configName,
                 pushFailedOrders = mergeOptionalBoolean(request.pushFailedOrders, existing.pushFailedOrders),
                 pushFilteredOrders = mergeOptionalBoolean(request.pushFilteredOrders, existing.pushFilteredOrders),
+                notificationRoutes = if (request.notificationRoutes != null) {
+                    convertNotificationRoutesToJson(request.notificationRoutes)
+                } else {
+                    existing.notificationRoutes
+                },
                 maxMarketEndDate = when (request.maxMarketEndDate) {
                     null -> existing.maxMarketEndDate
                     -1L -> null
@@ -435,6 +443,40 @@ class CopyTradingService(
         }
     }
 
+    private fun convertNotificationRoutesToJson(routes: List<CopyTradingNotificationRouteDto>?): String? {
+        val normalizedRoutes = routes
+            ?.filter { it.telegramConfigId > 0 }
+            ?.map {
+                it.copy(
+                    categories = it.categories.mapNotNull(::normalizeRouteValue).distinct(),
+                    notificationTypes = it.notificationTypes.mapNotNull(::normalizeRouteValue).distinct()
+                )
+            }
+            ?.takeIf { it.isNotEmpty() }
+            ?: return null
+
+        return gson.toJson(normalizedRoutes)
+    }
+
+    private fun convertJsonToNotificationRoutes(jsonString: String?): List<CopyTradingNotificationRouteDto> {
+        if (jsonString.isNullOrBlank()) {
+            return emptyList()
+        }
+
+        return try {
+            val type = object : TypeToken<List<CopyTradingNotificationRouteDto>>() {}.type
+            gson.fromJson<List<CopyTradingNotificationRouteDto>>(jsonString, type).orEmpty()
+                .filter { it.telegramConfigId > 0 }
+        } catch (e: Exception) {
+            logger.error("Failed to parse notification routes", e)
+            emptyList()
+        }
+    }
+
+    private fun normalizeRouteValue(value: String?): String? {
+        return value?.trim()?.lowercase()?.takeIf { it.isNotEmpty() && it != "all" }
+    }
+
     private fun validateAndNormalizeRules(
         copyTradingId: Long,
         enabled: Boolean,
@@ -524,6 +566,7 @@ class CopyTradingService(
             configName = copyTrading.configName,
             pushFailedOrders = copyTrading.pushFailedOrders,
             pushFilteredOrders = copyTrading.pushFilteredOrders,
+            notificationRoutes = convertJsonToNotificationRoutes(copyTrading.notificationRoutes),
             maxMarketEndDate = copyTrading.maxMarketEndDate,
             followRules = followRules.map(::toFollowRuleDto),
             createdAt = copyTrading.createdAt,

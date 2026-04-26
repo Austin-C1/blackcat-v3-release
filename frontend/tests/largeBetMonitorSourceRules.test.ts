@@ -36,4 +36,24 @@ describe('large bet monitor source rules', () => {
     expect(pageSource).toContain('basketballEnabled')
     expect(pageSource).toContain('profileUrl')
   })
+
+  it('keeps market query under system notification robot settings', () => {
+    const layoutSource = readSource('../src/components/Layout.tsx')
+    const pageSource = readSource('../src/pages/MarketBettingQuery.tsx')
+
+    expect(layoutSource).not.toContain("key: '/market-betting-query',\n      icon: <FundOutlined />")
+    expect(layoutSource).toContain("key: '/market-betting-query'")
+    expect(pageSource).toContain('marketBettingQueryEnabled')
+    expect(pageSource).toContain('查询机器人')
+  })
+
+  it('renders copy trading notification routes with robot and filters', () => {
+    const addSource = readSource('../src/pages/CopyTradingOrders/AddModal.tsx')
+    const editSource = readSource('../src/pages/CopyTradingOrders/EditModal.tsx')
+
+    expect(addSource).toContain('notificationRoutes')
+    expect(addSource).toContain('消息筛选')
+    expect(editSource).toContain('notificationRoutes')
+    expect(editSource).toContain('消息筛选')
+  })
 })

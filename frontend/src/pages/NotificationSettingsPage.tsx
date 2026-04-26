@@ -221,6 +221,7 @@ const NotificationSettingsPage: React.FC = () => {
         botToken: '',
         chatIds: '',
         monitorModeEnabled: false,
+        marketBettingQueryEnabled: false,
       },
     })
     setModalVisible(true)
@@ -239,6 +240,7 @@ const NotificationSettingsPage: React.FC = () => {
         botToken: telegramConfig.botToken || '',
         chatIds,
         monitorModeEnabled: Boolean(telegramConfig.monitorModeEnabled),
+        marketBettingQueryEnabled: Boolean(telegramConfig.marketBettingQueryEnabled),
       },
     })
     setModalVisible(true)
@@ -259,6 +261,7 @@ const NotificationSettingsPage: React.FC = () => {
         botToken: telegramConfig.botToken || '',
         chatIds: normalizeChatIds(telegramConfig.chatIds),
         monitorModeEnabled,
+        marketBettingQueryEnabled: Boolean(telegramConfig.marketBettingQueryEnabled),
       },
     }
   }
@@ -373,6 +376,7 @@ const NotificationSettingsPage: React.FC = () => {
           botToken: values.config.botToken,
           chatIds: normalizeChatIds(values.config.chatIds),
           monitorModeEnabled: Boolean(values.config.monitorModeEnabled),
+          marketBettingQueryEnabled: editingConfig ? Boolean(extractTelegramConfig(editingConfig).marketBettingQueryEnabled) : false,
         },
       }
 

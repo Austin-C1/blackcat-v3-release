@@ -159,6 +159,10 @@ class NotificationConfigService(
         require(monitorModeEnabled == null || monitorModeEnabled is Boolean) {
             "monitorModeEnabled must be a boolean"
         }
+        val marketBettingQueryEnabled = config["marketBettingQueryEnabled"]
+        require(marketBettingQueryEnabled == null || marketBettingQueryEnabled is Boolean) {
+            "marketBettingQueryEnabled must be a boolean"
+        }
     }
 
     private fun entityToDto(entity: NotificationConfig): NotificationConfigDto {
@@ -183,11 +187,17 @@ class NotificationConfigService(
                     is String -> raw.equals("true", ignoreCase = true)
                     else -> false
                 }
+                val marketBettingQueryEnabled = when (val raw = configMap["marketBettingQueryEnabled"]) {
+                    is Boolean -> raw
+                    is String -> raw.equals("true", ignoreCase = true)
+                    else -> false
+                }
                 NotificationConfigData.Telegram(
                     TelegramConfigData(
                         botToken = botToken,
                         chatIds = chatIds,
-                        monitorModeEnabled = monitorModeEnabled
+                        monitorModeEnabled = monitorModeEnabled,
+                        marketBettingQueryEnabled = marketBettingQueryEnabled
                     )
                 )
             }

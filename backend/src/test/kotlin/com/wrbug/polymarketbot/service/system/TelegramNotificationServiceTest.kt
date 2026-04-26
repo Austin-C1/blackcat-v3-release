@@ -33,6 +33,31 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
+    fun `copy trading route should match category and notification type`() {
+        val route = CopyTradingTelegramRoute(
+            telegramConfigId = 1L,
+            categories = listOf("sports"),
+            notificationTypes = listOf("success")
+        )
+
+        assertTrue(route.matches("体育", "success"))
+        assertFalse(route.matches("crypto", "success"))
+        assertFalse(route.matches("sports", "filtered"))
+    }
+
+    @Test
+    fun `market betting query should use only enabled query bots`() {
+        val configs = listOf(
+            telegramConfig(id = 1, name = "query", monitorModeEnabled = false, marketBettingQueryEnabled = true),
+            telegramConfig(id = 2, name = "normal", monitorModeEnabled = false, marketBettingQueryEnabled = false)
+        )
+
+        val filtered = filterMarketBettingQueryTelegramConfigs(configs)
+
+        assertEquals(listOf(1L), filtered.map { it.id })
+    }
+
+    @Test
     fun `signal source display should include config name before leader name`() {
         assertEquals("crocodile-main / 3crocodile3", buildSignalSourceDisplay("crocodile-main", "3crocodile3"))
     }
@@ -202,7 +227,8 @@ class TelegramNotificationServiceTest {
     private fun telegramConfig(
         id: Long,
         name: String,
-        monitorModeEnabled: Boolean
+        monitorModeEnabled: Boolean,
+        marketBettingQueryEnabled: Boolean = false
     ) = NotificationConfigDto(
         id = id,
         type = "telegram",
@@ -212,7 +238,8 @@ class TelegramNotificationServiceTest {
             TelegramConfigData(
                 botToken = "token-$id",
                 chatIds = listOf("chat-$id"),
-                monitorModeEnabled = monitorModeEnabled
+                monitorModeEnabled = monitorModeEnabled,
+                marketBettingQueryEnabled = marketBettingQueryEnabled
             )
         )
     )

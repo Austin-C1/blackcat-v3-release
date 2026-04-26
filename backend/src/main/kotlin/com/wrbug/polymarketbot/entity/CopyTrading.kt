@@ -91,6 +91,9 @@ data class CopyTrading(
     @Column(name = "push_filtered_orders", nullable = false)
     val pushFilteredOrders: Boolean = false,
 
+    @Column(name = "notification_routes", columnDefinition = "JSON")
+    val notificationRoutes: String? = null,
+
     @Column(name = "max_market_end_date")
     val maxMarketEndDate: Long? = null,
 

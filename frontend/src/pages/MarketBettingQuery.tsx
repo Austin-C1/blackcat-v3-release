@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { Button, Card, Col, Empty, Form, Input, Row, Space, Spin, Table, Tag, Typography, message } from 'antd'
-import { ReloadOutlined, SearchOutlined } from '@ant-design/icons'
+import { useEffect, useState } from 'react'
+import { Button, Card, Col, Empty, Form, Input, Row, Select, Space, Spin, Table, Tag, Typography, message } from 'antd'
+import { ReloadOutlined, SaveOutlined, SearchOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { apiService } from '../services/api'
-import type { MarketBettingEventDetail, MarketBettingEventSummary, MarketBettingHolder, MarketBettingMarketDetail, MarketBettingOutcomeDetail } from '../types'
+import type { MarketBettingEventDetail, MarketBettingEventSummary, MarketBettingHolder, MarketBettingMarketDetail, MarketBettingOutcomeDetail, NotificationConfig } from '../types'
+import { extractTelegramConfig, normalizeChatIds } from './notificationSettingsHelpers'
 
 const { Title, Text } = Typography
 
@@ -61,8 +62,55 @@ const MarketBettingQuery: React.FC = () => {
   const [form] = Form.useForm<FormValues>()
   const [loading, setLoading] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [botSaving, setBotSaving] = useState(false)
   const [events, setEvents] = useState<MarketBettingEventSummary[]>([])
   const [detail, setDetail] = useState<MarketBettingEventDetail | null>(null)
+  const [telegramConfigs, setTelegramConfigs] = useState<NotificationConfig[]>([])
+  const [queryBotIds, setQueryBotIds] = useState<number[]>([])
+
+  useEffect(() => {
+    void loadTelegramConfigs()
+  }, [])
+
+  const loadTelegramConfigs = async () => {
+    try {
+      const response = await apiService.notifications.list({ type: 'telegram' })
+      if (response.data.code === 0 && response.data.data) {
+        const configs = response.data.data.filter((item) => item.type.toLowerCase() === 'telegram')
+        setTelegramConfigs(configs)
+        setQueryBotIds(configs.filter((item) => extractTelegramConfig(item).marketBettingQueryEnabled).map((item) => item.id!))
+      }
+    } catch {
+      message.error('加载查询机器人失败')
+    }
+  }
+
+  const saveQueryBots = async () => {
+    setBotSaving(true)
+    try {
+      await Promise.all(telegramConfigs.map((config) => {
+        const telegram = extractTelegramConfig(config)
+        return apiService.notifications.update({
+          id: config.id!,
+          type: config.type,
+          name: config.name,
+          enabled: config.enabled,
+          config: {
+            botToken: telegram.botToken || '',
+            chatIds: normalizeChatIds(telegram.chatIds),
+            monitorModeEnabled: Boolean(telegram.monitorModeEnabled),
+            marketBettingQueryEnabled: queryBotIds.includes(config.id!),
+          },
+        })
+      }))
+      message.success('查询机器人已保存')
+      await loadTelegramConfigs()
+    } catch {
+      message.error('保存查询机器人失败')
+    } finally {
+      setBotSaving(false)
+    }
+  }
 
   const search = async () => {
     const values = await form.validateFields()
@@ -160,6 +208,26 @@ const MarketBettingQuery: React.FC = () => {
             </Space>
           </Form.Item>
         </Form>
+      </Card>
+
+      <Card title="查询机器人" style={{ marginBottom: 16 }}>
+        <Space wrap>
+          <Select
+            mode="multiple"
+            allowClear
+            style={{ minWidth: 320 }}
+            value={queryBotIds}
+            options={telegramConfigs.map((item) => ({ label: item.name, value: item.id }))}
+            placeholder="选择接收盘口查询指令的机器人"
+            onChange={setQueryBotIds}
+          />
+          <Button type="primary" icon={<SaveOutlined />} loading={botSaving} onClick={() => void saveQueryBots()}>
+            保存
+          </Button>
+        </Space>
+        <div style={{ marginTop: 8 }}>
+          <Text type="secondary">只有选中的机器人会响应 Telegram 里的盘口查询指令。</Text>
+        </div>
       </Card>
 
       <Row gutter={[16, 16]}>

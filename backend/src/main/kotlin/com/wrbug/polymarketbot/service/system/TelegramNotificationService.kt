@@ -6,7 +6,9 @@ import com.wrbug.polymarketbot.api.PolymarketClobApi
 import com.wrbug.polymarketbot.dto.NotificationConfigData
 import com.wrbug.polymarketbot.dto.NotificationConfigDto
 import com.wrbug.polymarketbot.dto.TelegramConfigData
+import com.wrbug.polymarketbot.repository.CopyTradingRepository
 import com.wrbug.polymarketbot.repository.LargeBetMonitorConfigRepository
+import com.wrbug.polymarketbot.util.CategoryValidator
 import com.wrbug.polymarketbot.util.createClient
 import com.wrbug.polymarketbot.util.toSafeBigDecimal
 import com.wrbug.polymarketbot.util.DateUtils
@@ -55,6 +57,27 @@ internal fun filterTelegramConfigsForAudience(
                 telegramConfigs.map { it.first }
             }
         }
+    }
+}
+
+internal data class CopyTradingTelegramRoute(
+    val telegramConfigId: Long,
+    val categories: List<String> = emptyList(),
+    val notificationTypes: List<String> = emptyList()
+) {
+    fun matches(category: String?, notificationType: String): Boolean {
+        val normalizedCategory = CategoryValidator.normalizeCategory(category) ?: category?.trim()?.lowercase().orEmpty()
+        val normalizedType = notificationType.trim().lowercase()
+        val categoryMatches = categories.isEmpty() || normalizedCategory in categories.map { it.trim().lowercase() }
+        val typeMatches = notificationTypes.isEmpty() || normalizedType in notificationTypes.map { it.trim().lowercase() }
+        return categoryMatches && typeMatches
+    }
+}
+
+internal fun filterMarketBettingQueryTelegramConfigs(configs: List<NotificationConfigDto>): List<NotificationConfigDto> {
+    return configs.filter { config ->
+        val telegramConfig = config.config as? NotificationConfigData.Telegram ?: return@filter false
+        telegramConfig.data.marketBettingQueryEnabled
     }
 }
 
@@ -118,7 +141,8 @@ class TelegramNotificationService(
     private val objectMapper: ObjectMapper,
     private val messageSource: MessageSource,
     private val largeBetMonitorConfigRepository: LargeBetMonitorConfigRepository,
-    private val systemConfigService: SystemConfigService
+    private val systemConfigService: SystemConfigService,
+    private val copyTradingRepository: CopyTradingRepository? = null
 ) {
 
     private val logger = LoggerFactory.getLogger(TelegramNotificationService::class.java)
@@ -157,7 +181,9 @@ class TelegramNotificationService(
         configName: String? = null,
         orderTime: Long? = null,
         availableBalance: String? = null,
-        currentPositionValue: String? = null
+        currentPositionValue: String? = null,
+        copyTradingId: Long? = null,
+        messageCategory: String? = null
     ) {
         if (orderId != null) {
             val lastSentTime = sentOrderIds[orderId]
@@ -265,7 +291,7 @@ class TelegramNotificationService(
             calculateFailed = calculateFailed
         )
         val message = notificationTemplateService.renderTemplate("ORDER_SUCCESS", vars)
-        sendStandardMessage(message)
+        sendCopyTradingMessage(message, copyTradingId, messageCategory, "success", TelegramNotificationAudience.STANDARD)
     }
 
     suspend fun sendTestMessage(message: String, configId: Long?): Boolean {
@@ -312,7 +338,9 @@ class TelegramNotificationService(
         leaderName: String? = null,
         configName: String? = null,
         locale: java.util.Locale? = null,
-        currentPositionValue: String? = null
+        currentPositionValue: String? = null,
+        copyTradingId: Long? = null,
+        messageCategory: String? = null
     ) {
         val currentLocale = locale ?: try {
             LocaleContextHolder.getLocale()
@@ -351,7 +379,7 @@ class TelegramNotificationService(
             calculateFailed = calculateFailed
         )
         val message = notificationTemplateService.renderTemplate("ORDER_FAILED", vars)
-        sendStandardMessage(message)
+        sendCopyTradingMessage(message, copyTradingId, messageCategory, "failed", TelegramNotificationAudience.STANDARD)
     }
 
     private fun buildOrderFailureVariables(
@@ -436,7 +464,9 @@ class TelegramNotificationService(
         filterType: String,
         accountName: String? = null,
         walletAddress: String? = null,
-        locale: java.util.Locale? = null
+        locale: java.util.Locale? = null,
+        copyTradingId: Long? = null,
+        messageCategory: String? = null
     ) {
         val currentLocale = locale ?: try {
             LocaleContextHolder.getLocale()
@@ -473,7 +503,7 @@ class TelegramNotificationService(
             calculateFailed = calculateFailed
         )
         val message = notificationTemplateService.renderTemplate("ORDER_FILTERED", vars)
-        sendStandardMessage(message)
+        sendCopyTradingMessage(message, copyTradingId, messageCategory, "filtered", TelegramNotificationAudience.STANDARD)
     }
 
     private fun buildOrderFilteredVariables(
@@ -819,6 +849,91 @@ class TelegramNotificationService(
         return true
     }
 
+    private suspend fun sendCopyTradingMessage(
+        message: String,
+        copyTradingId: Long?,
+        category: String?,
+        notificationType: String,
+        fallbackAudience: TelegramNotificationAudience
+    ) {
+        val routedConfigs = findCopyTradingRouteConfigs(copyTradingId, category, notificationType)
+        if (copyTradingId != null && routedConfigs != null) {
+            sendMessageToConfigs(message, routedConfigs)
+            return
+        }
+
+        sendMessage(message, fallbackAudience)
+    }
+
+    private suspend fun findCopyTradingRouteConfigs(
+        copyTradingId: Long?,
+        category: String?,
+        notificationType: String
+    ): List<NotificationConfigDto>? = withContext(Dispatchers.IO) {
+        if (copyTradingId == null || copyTradingRepository == null) {
+            return@withContext null
+        }
+
+        val copyTrading = copyTradingRepository.findById(copyTradingId).orElse(null) ?: return@withContext null
+        val routes = parseCopyTradingRoutes(copyTrading.notificationRoutes)
+        if (routes.isEmpty()) {
+            return@withContext null
+        }
+
+        val matchedConfigIds = routes
+            .filter { it.matches(category, notificationType) }
+            .map { it.telegramConfigId }
+            .toSet()
+
+        if (matchedConfigIds.isEmpty()) {
+            return@withContext emptyList()
+        }
+
+        notificationConfigService.getEnabledConfigsByType("telegram")
+            .filter { it.id in matchedConfigIds }
+    }
+
+    private fun parseCopyTradingRoutes(rawRoutes: String?): List<CopyTradingTelegramRoute> {
+        if (rawRoutes.isNullOrBlank()) {
+            return emptyList()
+        }
+
+        return try {
+            val array = objectMapper.readTree(rawRoutes).takeIf { it.isArray } ?: return emptyList()
+            array.mapNotNull { item ->
+                val telegramConfigId = item["telegramConfigId"]?.asLong() ?: return@mapNotNull null
+                CopyTradingTelegramRoute(
+                    telegramConfigId = telegramConfigId,
+                    categories = item["categories"]?.mapNotNull { it.asText()?.trim()?.lowercase()?.takeIf(String::isNotEmpty) }.orEmpty(),
+                    notificationTypes = item["notificationTypes"]?.mapNotNull { it.asText()?.trim()?.lowercase()?.takeIf(String::isNotEmpty) }.orEmpty()
+                )
+            }
+        } catch (e: Exception) {
+            logger.warn("Failed to parse copy trading notification routes: {}", e.message)
+            emptyList()
+        }
+    }
+
+    private fun sendMessageToConfigs(message: String, configs: List<NotificationConfigDto>) {
+        if (configs.isEmpty()) {
+            logger.debug("没有匹配的 Telegram 路由配置，跳过发送消息")
+            return
+        }
+
+        configs.forEach { config ->
+            scope.launch {
+                try {
+                    when (val configData = config.config) {
+                        is NotificationConfigData.Telegram -> sendTelegramMessage(configData.data, message)
+                        else -> logger.warn("不支持的配置类型: ${config.type}")
+                    }
+                } catch (e: Exception) {
+                    logger.error("发送 Telegram 路由消息失败 (configId=${config.id}): ${e.message}", e)
+                }
+            }
+        }
+    }
+
     private suspend fun sendMessage(message: String, audience: TelegramNotificationAudience) {
         try {
             val excludedConfigIds = largeBetAssignedTelegramConfigIds()
@@ -868,7 +983,9 @@ class TelegramNotificationService(
         price: String,
         size: String,
         currentPositionSummary: String,
-        locale: java.util.Locale? = null
+        locale: java.util.Locale? = null,
+        copyTradingId: Long? = null,
+        messageCategory: String? = null
     ) {
         val currentLocale = locale ?: try {
             LocaleContextHolder.getLocale()
@@ -925,7 +1042,7 @@ class TelegramNotificationService(
                 "time" to DateUtils.formatDateTime()
             )
         )
-        sendMonitorMessage(message)
+        sendCopyTradingMessage(message, copyTradingId, messageCategory, "monitor", TelegramNotificationAudience.MONITOR_ONLY)
     }
 
     suspend fun sendMonitorSameSideNotification(

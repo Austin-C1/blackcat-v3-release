@@ -174,7 +174,8 @@ class TelegramNotificationServiceImplementationTest {
         )
 
         assertTrue(
-            monitorPushSection.contains("sendMonitorMessage(message)"),
+            monitorPushSection.contains("sendCopyTradingMessage(message") &&
+                monitorPushSection.contains("TelegramNotificationAudience.MONITOR_ONLY"),
             "Monitor push notifications should be delivered only to monitor Telegram configs"
         )
 

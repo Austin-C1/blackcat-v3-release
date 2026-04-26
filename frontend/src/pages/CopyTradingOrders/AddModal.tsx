@@ -3,7 +3,7 @@ import { Alert, Button, Form, Input, Modal, Select, Space, Switch, message } fro
 import { useMediaQuery } from 'react-responsive'
 import { apiService } from '../../services/api'
 import { useAccountStore } from '../../store/accountStore'
-import type { CopyTradingCreateFormValues, CopyTradingCreateRequest, Leader } from '../../types'
+import type { CopyTradingCreateFormValues, CopyTradingCreateRequest, Leader, NotificationConfig } from '../../types'
 
 interface AddModalProps {
   open: boolean
@@ -28,6 +28,7 @@ const AddModal: React.FC<AddModalProps> = ({ open, onClose, onSuccess, preFilled
   const [form] = Form.useForm<CopyTradingCreateFormValues>()
   const selectedAccountId = Form.useWatch('accountId', form)
   const [leaders, setLeaders] = useState<Leader[]>([])
+  const [telegramConfigs, setTelegramConfigs] = useState<NotificationConfig[]>([])
   const [boundLeaderIdsByAccount, setBoundLeaderIdsByAccount] = useState<Record<number, number[]>>({})
   const [loading, setLoading] = useState(false)
   const preFilledAccountId = preFilledConfig?.accountId
@@ -42,6 +43,7 @@ const AddModal: React.FC<AddModalProps> = ({ open, onClose, onSuccess, preFilled
     setBoundLeaderIdsByAccount({})
     void fetchAccounts()
     void fetchLeaders()
+    void fetchTelegramConfigs()
     void fetchExistingCopyTradings()
     form.setFieldsValue({
       accountId: preFilledAccountId,
@@ -50,6 +52,7 @@ const AddModal: React.FC<AddModalProps> = ({ open, onClose, onSuccess, preFilled
       supportSell: true,
       pushFailedOrders: false,
       pushFilteredOrders: false,
+      notificationRoutes: [],
     })
   }, [open, preFilledAccountId, preFilledConfigName, preFilledLeaderId, fetchAccounts, form])
 
@@ -61,6 +64,17 @@ const AddModal: React.FC<AddModalProps> = ({ open, onClose, onSuccess, preFilled
       }
     } catch (error: any) {
       message.error(error.message || '获取 Leader 列表失败')
+    }
+  }
+
+  const fetchTelegramConfigs = async () => {
+    try {
+      const response = await apiService.notifications.list({ type: 'telegram' })
+      if (response.data.code === 0 && response.data.data) {
+        setTelegramConfigs(response.data.data.filter((item) => item.type.toLowerCase() === 'telegram'))
+      }
+    } catch (error: any) {
+      message.error(error.message || '获取机器人列表失败')
     }
   }
 
@@ -126,6 +140,7 @@ const AddModal: React.FC<AddModalProps> = ({ open, onClose, onSuccess, preFilled
         supportSell: values.supportSell !== false,
         pushFailedOrders: values.pushFailedOrders ?? false,
         pushFilteredOrders: values.pushFilteredOrders ?? false,
+        notificationRoutes: values.notificationRoutes || [],
         followSettingsEnabled: false,
         enabled: true,
       }
@@ -206,6 +221,50 @@ const AddModal: React.FC<AddModalProps> = ({ open, onClose, onSuccess, preFilled
         <Form.Item label="推送已过滤订单" name="pushFilteredOrders" valuePropName="checked">
           <Switch checkedChildren="开启" unCheckedChildren="关闭" />
         </Form.Item>
+
+        <Form.List name="notificationRoutes">
+          {(fields, { add, remove }) => (
+            <Form.Item label="消息筛选">
+              <Space direction="vertical" style={{ width: '100%' }}>
+                {fields.map((field) => (
+                  <Space key={field.key} wrap align="baseline">
+                    <Form.Item name={[field.name, 'telegramConfigId']} rules={[{ required: true, message: '请选择机器人' }]} style={{ minWidth: 180 }}>
+                      <Select placeholder="选择机器人" options={telegramConfigs.map((item) => ({ label: item.name, value: item.id }))} />
+                    </Form.Item>
+                    <Form.Item name={[field.name, 'categories']} style={{ minWidth: 180 }}>
+                      <Select
+                        mode="multiple"
+                        allowClear
+                        placeholder="盘口类型"
+                        options={[
+                          { label: '全部', value: 'all' },
+                          { label: '体育', value: 'sports' },
+                          { label: '加密', value: 'crypto' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item name={[field.name, 'notificationTypes']} style={{ minWidth: 220 }}>
+                      <Select
+                        mode="multiple"
+                        allowClear
+                        placeholder="消息类型"
+                        options={[
+                          { label: '全部', value: 'all' },
+                          { label: '成功订单', value: 'success' },
+                          { label: '失败订单', value: 'failed' },
+                          { label: '过滤订单', value: 'filtered' },
+                          { label: '监控提醒', value: 'monitor' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Button danger onClick={() => remove(field.name)}>删除</Button>
+                  </Space>
+                ))}
+                <Button onClick={() => add({ categories: [], notificationTypes: [] })}>添加机器人筛选</Button>
+              </Space>
+            </Form.Item>
+          )}
+        </Form.List>
 
         <Form.Item style={{ marginBottom: 0 }}>
           <Space>

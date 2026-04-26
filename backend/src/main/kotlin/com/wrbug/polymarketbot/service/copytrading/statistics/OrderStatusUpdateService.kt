@@ -812,7 +812,9 @@ class OrderStatusUpdateService(
                 configName = configName,
                 orderTime = orderCreatedAt,
                 availableBalance = availableBalance,
-                currentPositionValue = leaderCurrentPositionValue
+                currentPositionValue = leaderCurrentPositionValue,
+                copyTradingId = finalCopyTrading.id,
+                messageCategory = leader?.category ?: leader?.customGroup
             )
 
             logger.info("Buy order success notification sent: orderId=${order.buyOrderId}, copyTradingId=${order.copyTradingId}")
@@ -905,7 +907,9 @@ class OrderStatusUpdateService(
                 configName = configName,
                 orderTime = orderCreatedAt,
                 availableBalance = availableBalance,
-                currentPositionValue = leaderCurrentPositionValue
+                currentPositionValue = leaderCurrentPositionValue,
+                copyTradingId = finalCopyTrading.id,
+                messageCategory = leader?.category ?: leader?.customGroup
             )
 
             logger.info("Sell order success notification sent: orderId=${record.sellOrderId}, copyTradingId=${record.copyTradingId}")

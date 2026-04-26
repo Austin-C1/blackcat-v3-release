@@ -6,7 +6,13 @@ object CategoryValidator {
     
     private val CATEGORY_MAPPING = mapOf(
         "sports" to "sports",
+        "sport" to "sports",
+        "体育" to "sports",
+        "體育" to "sports",
         "crypto" to "crypto",
+        "加密" to "crypto",
+        "币圈" to "crypto",
+        "幣圈" to "crypto",
         "cryptocurrency" to "crypto",
         "cryptocurrencies" to "crypto"
     )
@@ -26,7 +32,13 @@ object CategoryValidator {
         if (categoryLower.contains("sport")) {
             return true
         }
+        if (categoryLower.contains("体育") || categoryLower.contains("體育")) {
+            return true
+        }
         if (categoryLower.contains("crypto")) {
+            return true
+        }
+        if (categoryLower.contains("加密") || categoryLower.contains("币圈") || categoryLower.contains("幣圈")) {
             return true
         }
         
@@ -45,7 +57,13 @@ object CategoryValidator {
         if (categoryLower.contains("sport")) {
             return "sports"
         }
+        if (categoryLower.contains("体育") || categoryLower.contains("體育")) {
+            return "sports"
+        }
         if (categoryLower.contains("crypto")) {
+            return "crypto"
+        }
+        if (categoryLower.contains("加密") || categoryLower.contains("币圈") || categoryLower.contains("幣圈")) {
             return "crypto"
         }
         

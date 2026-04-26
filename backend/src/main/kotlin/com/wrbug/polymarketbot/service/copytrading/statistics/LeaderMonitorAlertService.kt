@@ -239,6 +239,7 @@ class LeaderMonitorAlertService(
             ?: trade.outcomeIndex?.toString()
             ?: "-"
         val leaderName = leader.leaderName?.trim().takeUnless { it.isNullOrBlank() } ?: "Leader-$leaderId"
+        val copyTrading = copyTradingRepository.findByLeaderIdAndEnabledTrue(leaderId).firstOrNull()
 
         telegramNotificationService.sendMonitorPushNotification(
             marketTitle = referencePosition?.marketTitle ?: trade.market,
@@ -248,7 +249,9 @@ class LeaderMonitorAlertService(
             outcome = outcome,
             price = trade.price,
             size = trade.size,
-            currentPositionSummary = buildMonitorPositionSummary(currentMarketPositions)
+            currentPositionSummary = buildMonitorPositionSummary(currentMarketPositions),
+            copyTradingId = copyTrading?.id,
+            messageCategory = leader.category ?: leader.customGroup
         )
     }
 

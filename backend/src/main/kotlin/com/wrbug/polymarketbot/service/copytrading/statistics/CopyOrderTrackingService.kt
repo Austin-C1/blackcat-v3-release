@@ -791,7 +791,9 @@ open class CopyOrderTrackingService(
                         filterType = filterType,
                         accountName = account.accountName,
                         walletAddress = account.walletAddress,
-                        locale = locale
+                        locale = locale,
+                        copyTradingId = copyTrading.id,
+                        messageCategory = leaderRepository.findById(copyTrading.leaderId).orElse(null)?.let { it.category ?: it.customGroup }
                     )
                 }
             } catch (e: Exception) {
@@ -838,7 +840,9 @@ open class CopyOrderTrackingService(
                     leaderName = leader?.leaderName,
                     configName = copyTrading.configName,
                     locale = locale,
-                    currentPositionValue = leaderCurrentPositionValue
+                    currentPositionValue = leaderCurrentPositionValue,
+                    copyTradingId = copyTrading.id,
+                    messageCategory = leader?.category ?: leader?.customGroup
                 )
             } catch (e: Exception) {
                 logger.warn("Failed to send buy failure notification: copyTradingId=${copyTrading.id}, error=${e.message}")

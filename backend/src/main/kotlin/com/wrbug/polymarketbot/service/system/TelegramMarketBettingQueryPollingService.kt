@@ -28,7 +28,7 @@ class TelegramMarketBettingQueryPollingService(
     @Scheduled(fixedDelay = 5_000)
     fun poll() {
         runBlocking {
-            val configs = notificationConfigService.getEnabledConfigsByType("telegram")
+            val configs = filterMarketBettingQueryTelegramConfigs(notificationConfigService.getEnabledConfigsByType("telegram"))
             configs.forEach { config ->
                 val telegram = config.config as? NotificationConfigData.Telegram ?: return@forEach
                 val token = telegram.data.botToken.takeIf { it.isNotBlank() } ?: return@forEach
