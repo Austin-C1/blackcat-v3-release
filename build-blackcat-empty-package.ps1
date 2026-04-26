@@ -15,6 +15,7 @@ $usageGuideTemplatePath = Join-Path $packageTemplateDir 'package-start-template.
 $packageDatabasePort = 23307
 $packageDatabasePassword = $null
 $packageDatabaseName = 'blackcat_v1'
+$oneClickLauncherName = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('5LiA6ZSu5a6J6KOF5ZCv5YqoLmNtZA=='))
 
 function Get-VersionFromBuildFiles {
     if (-not (Test-Path $frontendPackageJsonPath)) {
@@ -61,6 +62,21 @@ function Write-Utf8File {
 
     $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
     [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
+}
+
+function Write-OneClickLauncher {
+    param(
+        [string]$Path
+    )
+
+    $content = @'
+@echo off
+setlocal
+cd /d "%~dp0"
+call "%~dp0launch-blackcat.cmd"
+'@
+
+    Write-Utf8File -Path $Path -Content $content
 }
 
 function Replace-ExactText {
@@ -157,6 +173,7 @@ Copy-Item -LiteralPath (Join-Path $rootDir 'start-blackcat-backend.cmd') -Destin
 Copy-Item -LiteralPath (Join-Path $rootDir 'scripts\serve-blackcat-frontend.ps1') -Destination (Join-Path $packageDir 'scripts') -Force
 Copy-Item -LiteralPath (Join-Path $rootDir 'frontend\dist') -Destination (Join-Path $packageDir 'frontend') -Recurse -Force
 Copy-Item -LiteralPath $javaHome -Destination (Join-Path $packageDir '.tools') -Recurse -Force
+Write-OneClickLauncher -Path (Join-Path $packageDir $oneClickLauncherName)
 
 $packageLaunchScriptPath = Join-Path $packageDir 'launch-blackcat.ps1'
 $packageBackendScriptPath = Join-Path $packageDir 'start-blackcat-backend.ps1'
@@ -169,7 +186,10 @@ Replace-ExactText -Path $packageLaunchScriptPath -Replacements @{
 
 Replace-ExactText -Path $packageBackendScriptPath -Replacements @{
     "127.0.0.1:13307" = "127.0.0.1:$packageDatabasePort"
-    "`$env:ADMIN_RESET_PASSWORD_KEY = '33eee2012b94b2097a31a9a22231bfcc'" = "`$env:ADMIN_RESET_PASSWORD_KEY = '$packageAdminResetKey'"
+    "`$env:ADMIN_RESET_PASSWORD_KEY = if (`$env:ADMIN_RESET_PASSWORD_KEY) { `$env:ADMIN_RESET_PASSWORD_KEY } else { 'change-me' }" = "`$env:ADMIN_RESET_PASSWORD_KEY = '$packageAdminResetKey'"
+    "`$env:BLACKCAT_PACKAGE_DEFAULT_ADMIN_ENABLED = if (`$env:BLACKCAT_PACKAGE_DEFAULT_ADMIN_ENABLED) { `$env:BLACKCAT_PACKAGE_DEFAULT_ADMIN_ENABLED } else { 'true' }" = "`$env:BLACKCAT_PACKAGE_DEFAULT_ADMIN_ENABLED = 'true'"
+    "`$env:BLACKCAT_PACKAGE_DEFAULT_ADMIN_USERNAME = if (`$env:BLACKCAT_PACKAGE_DEFAULT_ADMIN_USERNAME) { `$env:BLACKCAT_PACKAGE_DEFAULT_ADMIN_USERNAME } else { '123456' }" = "`$env:BLACKCAT_PACKAGE_DEFAULT_ADMIN_USERNAME = '123456'"
+    "`$env:BLACKCAT_PACKAGE_DEFAULT_ADMIN_PASSWORD = if (`$env:BLACKCAT_PACKAGE_DEFAULT_ADMIN_PASSWORD) { `$env:BLACKCAT_PACKAGE_DEFAULT_ADMIN_PASSWORD } else { '123456' }" = "`$env:BLACKCAT_PACKAGE_DEFAULT_ADMIN_PASSWORD = '123456'"
 }
 
 $templateVariables = @{
