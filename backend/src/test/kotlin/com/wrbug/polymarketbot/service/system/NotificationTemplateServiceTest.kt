@@ -115,12 +115,15 @@ class NotificationTemplateServiceTest {
             NotificationTemplate(
                 id = 2L,
                 templateType = "ORDER_SUCCESS",
-                templateContent = """
-                    馃殌 <b>${legacyMojibake("订单创建成功")}</b>
+                templateContent = legacyMojibake(
+                    """
+                    🚀 <b>订单创建成功</b>
 
-                    馃搳 <b>${legacyMojibake("订单信息")}锛?/b>
-                    鈥?${legacyMojibake("账户")}: 涓昏处鎴?                    鈥?${legacyMojibake("时间")}: 2024-01-15 12:30:00
-                """.trimIndent(),
+                    📊 <b>订单信息</b>
+                    • 账户: 主账户
+                    • 时间: 2024-01-15 12:30:00
+                    """.trimIndent()
+                ),
                 isDefault = false
             )
         )

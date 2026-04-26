@@ -1088,6 +1088,7 @@ export interface NotificationConfig {
     chatIds?: string[]  // Telegram Chat IDs
     monitorModeEnabled?: boolean
     marketBettingQueryEnabled?: boolean
+    copyTradingLeaderGroups?: string[]
     copyTradingCategories?: string[]
     copyTradingNotificationTypes?: string[]
     [key: string]: any  // 其他配置字段
@@ -1108,6 +1109,7 @@ export interface NotificationConfigRequest {
     chatIds?: string[] | string  // 支持数组或逗号分隔的字符串
     monitorModeEnabled?: boolean
     marketBettingQueryEnabled?: boolean
+    copyTradingLeaderGroups?: string[]
     copyTradingCategories?: string[]
     copyTradingNotificationTypes?: string[]
     [key: string]: any
@@ -1150,6 +1152,7 @@ export interface NotificationConfigUpdateRequest {
     chatIds?: string[] | string
     monitorModeEnabled?: boolean
     marketBettingQueryEnabled?: boolean
+    copyTradingLeaderGroups?: string[]
     copyTradingCategories?: string[]
     copyTradingNotificationTypes?: string[]
     [key: string]: any

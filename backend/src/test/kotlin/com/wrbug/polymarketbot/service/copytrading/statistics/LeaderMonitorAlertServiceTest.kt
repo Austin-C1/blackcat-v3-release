@@ -20,7 +20,7 @@ class LeaderMonitorAlertServiceTest {
         assertEquals(1, alerts.size)
         assertEquals("YES", alerts.single().outcome)
         assertEquals(2, alerts.single().sameSideCount)
-        assertEquals(listOf("sports"), alerts.single().messageCategories)
+        assertEquals(listOf("sports"), alerts.single().leaderGroups)
         assertTrue(alerts.single().sameSidePositionReport.contains("Austin｜持仓报告: <code>320u @ 0.61</code>"))
         assertTrue(alerts.single().sameSidePositionReport.contains("debased｜持仓报告: <code>185u @ 0.58</code>"))
     }
@@ -39,7 +39,7 @@ class LeaderMonitorAlertServiceTest {
         requireNotNull(alert)
         assertEquals("YES", alert.outcomeA)
         assertEquals("NO", alert.outcomeB)
-        assertEquals(listOf("sports"), alert.messageCategories)
+        assertEquals(listOf("sports"), alert.leaderGroups)
         assertTrue(alert.sideAPositionReport.contains("Austin｜持仓报告: <code>320u @ 0.61</code>"))
         assertTrue(alert.sideBPositionReport.contains("debased｜持仓报告: <code>185u @ 0.42</code>"))
         assertTrue(alert.hedgePositionReport.contains("hedger｜YES: <code>210u @ 0.59</code>｜NO: <code>95u @ 0.41</code>"))
@@ -52,7 +52,7 @@ class LeaderMonitorAlertServiceTest {
         outcome: String,
         currentValue: String,
         avgPrice: String,
-        messageCategory: String? = "sports"
+        leaderGroup: String? = "sports"
     ) = LeaderMonitorPosition(
         leaderId = leaderId,
         leaderName = leaderName,
@@ -63,6 +63,6 @@ class LeaderMonitorAlertServiceTest {
         outcome = outcome,
         currentValue = BigDecimal(currentValue),
         avgPrice = BigDecimal(avgPrice),
-        messageCategory = messageCategory
+        leaderGroup = leaderGroup
     )
 }

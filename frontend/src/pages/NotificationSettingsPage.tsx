@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Button,
   Card,
@@ -39,6 +39,7 @@ import type {
   NotificationConfigRequest,
   NotificationConfigUpdateRequest,
   NotificationTemplate,
+  Leader,
   TemplateTypeInfo,
   TemplateVariable,
   TemplateVariablesResponse,
@@ -88,34 +89,11 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const TEST_NOTIFICATION_MESSAGE = '这是一条测试消息'
 
-const COPY_TRADING_CATEGORY_LABELS: Record<string, string> = {
-  sports: '体育',
-  crypto: '加密',
-}
-
-const COPY_TRADING_NOTIFICATION_TYPE_LABELS: Record<string, string> = {
-  success: '成功订单',
-  failed: '失败订单',
-  filtered: '过滤订单',
-  monitor: '监控提醒（含同向/反向）',
-}
-
-const COPY_TRADING_CATEGORY_OPTIONS = Object.entries(COPY_TRADING_CATEGORY_LABELS).map(([value, label]) => ({
-  label,
-  value,
-}))
-
-const COPY_TRADING_NOTIFICATION_TYPE_OPTIONS = Object.entries(COPY_TRADING_NOTIFICATION_TYPE_LABELS).map(([value, label]) => ({
-  label,
-  value,
-}))
-
-type RobotFilterField = 'copyTradingCategories' | 'copyTradingNotificationTypes'
+type RobotFilterField = 'copyTradingLeaderGroups'
 
 type RobotConfigOverrides = {
   monitorModeEnabled?: boolean
-  copyTradingCategories?: string[]
-  copyTradingNotificationTypes?: string[]
+  copyTradingLeaderGroups?: string[]
 }
 
 const normalizeFilterValues = (values?: string[] | string): string[] => {
@@ -132,6 +110,7 @@ const NotificationSettingsPage: React.FC = () => {
   const [form] = Form.useForm()
   const [orderFilterForm] = Form.useForm()
   const [configs, setConfigs] = useState<NotificationConfig[]>([])
+  const [leaders, setLeaders] = useState<Leader[]>([])
   const [loading, setLoading] = useState(false)
   const [orderFilterLoading, setOrderFilterLoading] = useState(false)
   const [orderFilterSaving, setOrderFilterSaving] = useState(false)
@@ -162,6 +141,21 @@ const NotificationSettingsPage: React.FC = () => {
 
   const readyTestConfigs = configs.filter(isConfigReadyForTest)
   const hasReadyTestConfig = readyTestConfigs.length > 0
+  const leaderGroupOptions = useMemo(() => {
+    const groups = new Map<string, string>()
+    leaders.forEach((leader) => {
+      const label = leader.customGroup?.trim()
+      if (!label) return
+      const value = normalizeFilterValues([label])[0]
+      if (value && !groups.has(value)) {
+        groups.set(value, label)
+      }
+    })
+
+    return Array.from(groups.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'))
+  }, [leaders])
 
   const fetchOrderNotificationFilter = useCallback(async () => {
     setOrderFilterLoading(true)
@@ -197,6 +191,19 @@ const NotificationSettingsPage: React.FC = () => {
       setLoading(false)
     }
   }, [showApiError, t])
+
+  const fetchLeaders = useCallback(async () => {
+    try {
+      const response = await apiService.leaders.list({})
+      if (response.data.code === 0 && response.data.data) {
+        setLeaders(response.data.data.list || [])
+      } else {
+        message.error(response.data.msg || '获取 Leader 分组失败')
+      }
+    } catch (error) {
+      showApiError(error, '获取 Leader 分组失败')
+    }
+  }, [showApiError])
 
   const fetchTemplateTypes = useCallback(async () => {
     try {
@@ -237,9 +244,10 @@ const NotificationSettingsPage: React.FC = () => {
 
   useEffect(() => {
     fetchConfigs()
+    fetchLeaders()
     fetchTemplateTypes()
     fetchOrderNotificationFilter()
-  }, [fetchConfigs, fetchOrderNotificationFilter, fetchTemplateTypes])
+  }, [fetchConfigs, fetchLeaders, fetchOrderNotificationFilter, fetchTemplateTypes])
 
   useEffect(() => {
     if (!selectedTemplateType) {
@@ -261,8 +269,7 @@ const NotificationSettingsPage: React.FC = () => {
         chatIds: '',
         monitorModeEnabled: false,
         marketBettingQueryEnabled: false,
-        copyTradingCategories: [],
-        copyTradingNotificationTypes: [],
+        copyTradingLeaderGroups: [],
       },
     })
     setModalVisible(true)
@@ -282,8 +289,7 @@ const NotificationSettingsPage: React.FC = () => {
         chatIds,
         monitorModeEnabled: Boolean(telegramConfig.monitorModeEnabled),
         marketBettingQueryEnabled: Boolean(telegramConfig.marketBettingQueryEnabled),
-        copyTradingCategories: normalizeFilterValues(telegramConfig.copyTradingCategories),
-        copyTradingNotificationTypes: normalizeFilterValues(telegramConfig.copyTradingNotificationTypes),
+        copyTradingLeaderGroups: normalizeFilterValues(telegramConfig.copyTradingLeaderGroups),
       },
     })
     setModalVisible(true)
@@ -305,8 +311,7 @@ const NotificationSettingsPage: React.FC = () => {
         chatIds: normalizeChatIds(telegramConfig.chatIds),
         monitorModeEnabled: overrides.monitorModeEnabled ?? Boolean(telegramConfig.monitorModeEnabled),
         marketBettingQueryEnabled: Boolean(telegramConfig.marketBettingQueryEnabled),
-        copyTradingCategories: overrides.copyTradingCategories ?? normalizeFilterValues(telegramConfig.copyTradingCategories),
-        copyTradingNotificationTypes: overrides.copyTradingNotificationTypes ?? normalizeFilterValues(telegramConfig.copyTradingNotificationTypes),
+        copyTradingLeaderGroups: overrides.copyTradingLeaderGroups ?? normalizeFilterValues(telegramConfig.copyTradingLeaderGroups),
       },
     }
   }
@@ -445,8 +450,7 @@ const NotificationSettingsPage: React.FC = () => {
           chatIds: normalizeChatIds(values.config.chatIds),
           monitorModeEnabled: Boolean(values.config.monitorModeEnabled),
           marketBettingQueryEnabled: editingConfig ? Boolean(extractTelegramConfig(editingConfig).marketBettingQueryEnabled) : false,
-          copyTradingCategories: normalizeFilterValues(values.config.copyTradingCategories),
-          copyTradingNotificationTypes: normalizeFilterValues(values.config.copyTradingNotificationTypes),
+          copyTradingLeaderGroups: normalizeFilterValues(values.config.copyTradingLeaderGroups),
         },
       }
 
@@ -653,13 +657,16 @@ const NotificationSettingsPage: React.FC = () => {
   }))
 
   const renderFilterSelect = (
-    record: NotificationConfig,
-    field: RobotFilterField,
-    options: { label: string; value: string }[],
-    placeholder: string
+    record: NotificationConfig
   ) => {
     const telegramConfig = extractTelegramConfig(record)
-    const value = normalizeFilterValues(telegramConfig[field])
+    const value = normalizeFilterValues(telegramConfig.copyTradingLeaderGroups)
+    const optionValues = new Set(leaderGroupOptions.map((option) => option.value))
+    const selectedMissingOptions = value
+      .filter((item) => !optionValues.has(item))
+      .map((item) => ({ value: item, label: item }))
+    const options = [...leaderGroupOptions, ...selectedMissingOptions]
+    const monitorModeEnabled = getMonitorModeEnabled(record)
 
     return (
       <Select
@@ -668,11 +675,12 @@ const NotificationSettingsPage: React.FC = () => {
         size="small"
         value={value}
         options={options}
-        placeholder={placeholder}
-        maxTagCount="responsive"
-        style={{ minWidth: isMobile ? 120 : 150 }}
+        disabled={!monitorModeEnabled || (options.length === 0 && value.length === 0)}
+        placeholder={options.length > 0 ? '全部 Leader 分组' : 'Leader 管理未设置分组'}
+        maxTagCount={isMobile ? 'responsive' : 2}
+        style={{ minWidth: isMobile ? 180 : 260, maxWidth: isMobile ? 220 : 320 }}
         popupMatchSelectWidth={false}
-        onChange={(nextValues) => handleUpdateRobotFilters(record, field, nextValues)}
+        onChange={(nextValues) => handleUpdateRobotFilters(record, 'copyTradingLeaderGroups', nextValues)}
       />
     )
   }
@@ -703,27 +711,23 @@ const NotificationSettingsPage: React.FC = () => {
       title: t('notificationSettings.monitorMode'),
       key: 'monitorMode',
       render: (_: unknown, record: NotificationConfig) => (
-        <Tooltip title={t('notificationSettings.monitorModeDescription')}>
-          <Switch
-            checked={getMonitorModeEnabled(record)}
-            size="small"
-            onChange={(checked) => handleToggleMonitorMode(record, checked)}
-          />
-        </Tooltip>
-      ),
-    },
-    {
-      title: '监控分类',
-      key: 'copyTradingCategories',
-      render: (_: unknown, record: NotificationConfig) => (
-        renderFilterSelect(record, 'copyTradingCategories', COPY_TRADING_CATEGORY_OPTIONS, '全部分类')
-      ),
-    },
-    {
-      title: '消息类型',
-      key: 'copyTradingNotificationTypes',
-      render: (_: unknown, record: NotificationConfig) => (
-        renderFilterSelect(record, 'copyTradingNotificationTypes', COPY_TRADING_NOTIFICATION_TYPE_OPTIONS, '全部类型')
+        <Space direction="vertical" size={6}>
+          <Tooltip title={t('notificationSettings.monitorModeDescription')}>
+            <Switch
+              checked={getMonitorModeEnabled(record)}
+              size="small"
+              onChange={(checked) => handleToggleMonitorMode(record, checked)}
+            />
+          </Tooltip>
+          {getMonitorModeEnabled(record) && (
+            <div>
+              <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>
+                Leader 分组
+              </Text>
+              {renderFilterSelect(record)}
+            </div>
+          )}
+        </Space>
       ),
     },
     {

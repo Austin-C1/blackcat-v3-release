@@ -165,6 +165,7 @@ class NotificationConfigService(
         }
         requireConfigStringList(config["copyTradingCategories"], "copyTradingCategories")
         requireConfigStringList(config["copyTradingNotificationTypes"], "copyTradingNotificationTypes")
+        requireConfigStringList(config["copyTradingLeaderGroups"], "copyTradingLeaderGroups")
     }
 
     private fun requireConfigStringList(value: Any?, fieldName: String) {
@@ -202,12 +203,14 @@ class NotificationConfigService(
                 }
                 val copyTradingCategories = parseStringList(configMap["copyTradingCategories"])
                 val copyTradingNotificationTypes = parseStringList(configMap["copyTradingNotificationTypes"])
+                val copyTradingLeaderGroups = parseStringList(configMap["copyTradingLeaderGroups"])
                 NotificationConfigData.Telegram(
                     TelegramConfigData(
                         botToken = botToken,
                         chatIds = chatIds,
                         monitorModeEnabled = monitorModeEnabled,
                         marketBettingQueryEnabled = marketBettingQueryEnabled,
+                        copyTradingLeaderGroups = copyTradingLeaderGroups,
                         copyTradingCategories = copyTradingCategories,
                         copyTradingNotificationTypes = copyTradingNotificationTypes
                     )

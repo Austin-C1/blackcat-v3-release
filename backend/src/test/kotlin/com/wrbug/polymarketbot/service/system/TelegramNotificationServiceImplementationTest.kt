@@ -187,7 +187,7 @@ class TelegramNotificationServiceImplementationTest {
     }
 
     @Test
-    fun `same side and opposite monitor notifications should use robot category filters`() {
+    fun `same side and opposite monitor notifications should use robot leader group filters`() {
         val source = Files.readString(sourcePath)
         val leaderMonitorSource = Files.readString(leaderMonitorAlertSourcePath)
 
@@ -199,20 +199,20 @@ class TelegramNotificationServiceImplementationTest {
             .substringBefore("private fun captureBaselineForMarket(")
 
         assertTrue(
-            sameSideSection.contains("messageCategories: Collection<String?>") &&
-                sameSideSection.contains("sendCopyTradingMessage(message, messageCategories, \"monitor\", TelegramNotificationAudience.MONITOR_ONLY)"),
-            "Same-side monitor notifications should route through the robot category filters"
+            sameSideSection.contains("leaderGroups: Collection<String?>") &&
+                sameSideSection.contains("sendCopyTradingMessage(message, leaderGroups, TelegramNotificationAudience.MONITOR_ONLY)"),
+            "Same-side monitor notifications should route through the robot leader-group filters"
         )
 
         assertTrue(
-            oppositeSection.contains("messageCategories: Collection<String?>") &&
-                oppositeSection.contains("sendCopyTradingMessage(message, messageCategories, \"monitor\", TelegramNotificationAudience.MONITOR_ONLY)"),
-            "Opposite-side monitor notifications should route through the robot category filters"
+            oppositeSection.contains("leaderGroups: Collection<String?>") &&
+                oppositeSection.contains("sendCopyTradingMessage(message, leaderGroups, TelegramNotificationAudience.MONITOR_ONLY)"),
+            "Opposite-side monitor notifications should route through the robot leader-group filters"
         )
 
         assertTrue(
-            publishMarketUpdatesSection.contains("messageCategories = alert.messageCategories"),
-            "Leader monitor same/opposite alerts should pass their categories to Telegram routing"
+            publishMarketUpdatesSection.contains("leaderGroups = alert.leaderGroups"),
+            "Leader monitor same/opposite alerts should pass their leader groups to Telegram routing"
         )
     }
 

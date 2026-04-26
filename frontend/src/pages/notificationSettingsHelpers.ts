@@ -5,6 +5,7 @@ type TelegramConfigShape = {
   chatIds?: string[] | string
   monitorModeEnabled?: boolean
   marketBettingQueryEnabled?: boolean
+  copyTradingLeaderGroups?: string[]
   copyTradingCategories?: string[]
   copyTradingNotificationTypes?: string[]
 }

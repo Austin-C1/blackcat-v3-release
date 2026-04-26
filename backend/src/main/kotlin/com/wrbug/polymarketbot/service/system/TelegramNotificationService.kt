@@ -7,7 +7,6 @@ import com.wrbug.polymarketbot.dto.NotificationConfigData
 import com.wrbug.polymarketbot.dto.NotificationConfigDto
 import com.wrbug.polymarketbot.dto.TelegramConfigData
 import com.wrbug.polymarketbot.repository.LargeBetMonitorConfigRepository
-import com.wrbug.polymarketbot.util.CategoryValidator
 import com.wrbug.polymarketbot.util.createClient
 import com.wrbug.polymarketbot.util.toSafeBigDecimal
 import com.wrbug.polymarketbot.util.DateUtils
@@ -61,40 +60,36 @@ internal fun filterTelegramConfigsForAudience(
 
 internal data class CopyTradingTelegramRoute(
     val telegramConfigId: Long,
-    val categories: List<String> = emptyList(),
-    val notificationTypes: List<String> = emptyList()
+    val leaderGroups: List<String> = emptyList()
 ) {
-    fun matches(category: String?, notificationType: String): Boolean {
-        val normalizedCategory = CategoryValidator.normalizeCategory(category) ?: category?.trim()?.lowercase().orEmpty()
-        val normalizedType = notificationType.trim().lowercase()
-        val categoryMatches = categories.isEmpty() || normalizedCategory in categories.map { it.trim().lowercase() }
-        val typeMatches = notificationTypes.isEmpty() || normalizedType in notificationTypes.map { it.trim().lowercase() }
-        return categoryMatches && typeMatches
+    fun matches(leaderGroup: String?): Boolean {
+        if (leaderGroups.isEmpty()) {
+            return true
+        }
+        val normalizedLeaderGroup = leaderGroup?.trim()?.lowercase().orEmpty()
+        return normalizedLeaderGroup.isNotEmpty() && normalizedLeaderGroup in leaderGroups.map { it.trim().lowercase() }
     }
 }
 
 internal fun hasCopyTradingRouteFilters(telegramConfig: TelegramConfigData): Boolean {
-    return telegramConfig.copyTradingCategories.isNotEmpty() || telegramConfig.copyTradingNotificationTypes.isNotEmpty()
+    return telegramConfig.copyTradingLeaderGroups.isNotEmpty()
 }
 
 internal fun telegramConfigMatchesCopyTradingRoute(
     telegramConfig: TelegramConfigData,
-    category: String?,
-    notificationType: String
-): Boolean = telegramConfigMatchesCopyTradingRoute(telegramConfig, listOf(category), notificationType)
+    leaderGroup: String?
+): Boolean = telegramConfigMatchesCopyTradingRoute(telegramConfig, listOf(leaderGroup))
 
 internal fun telegramConfigMatchesCopyTradingRoute(
     telegramConfig: TelegramConfigData,
-    categories: Collection<String?>,
-    notificationType: String
+    leaderGroups: Collection<String?>
 ): Boolean {
-    val routeCategories = categories.ifEmpty { listOf(null) }
+    val routeLeaderGroups = leaderGroups.ifEmpty { listOf(null) }
     return CopyTradingTelegramRoute(
         telegramConfigId = 0L,
-        categories = telegramConfig.copyTradingCategories,
-        notificationTypes = telegramConfig.copyTradingNotificationTypes
+        leaderGroups = telegramConfig.copyTradingLeaderGroups
     ).let { route ->
-        routeCategories.any { category -> route.matches(category, notificationType) }
+        routeLeaderGroups.any { leaderGroup -> route.matches(leaderGroup) }
     }
 }
 
@@ -314,7 +309,7 @@ class TelegramNotificationService(
             calculateFailed = calculateFailed
         )
         val message = notificationTemplateService.renderTemplate("ORDER_SUCCESS", vars)
-        sendCopyTradingMessage(message, messageCategory, "success", TelegramNotificationAudience.STANDARD)
+        sendCopyTradingMessage(message, messageCategory, TelegramNotificationAudience.STANDARD)
     }
 
     suspend fun sendTestMessage(message: String, configId: Long?): Boolean {
@@ -402,7 +397,7 @@ class TelegramNotificationService(
             calculateFailed = calculateFailed
         )
         val message = notificationTemplateService.renderTemplate("ORDER_FAILED", vars)
-        sendCopyTradingMessage(message, messageCategory, "failed", TelegramNotificationAudience.STANDARD)
+        sendCopyTradingMessage(message, messageCategory, TelegramNotificationAudience.STANDARD)
     }
 
     private fun buildOrderFailureVariables(
@@ -526,7 +521,7 @@ class TelegramNotificationService(
             calculateFailed = calculateFailed
         )
         val message = notificationTemplateService.renderTemplate("ORDER_FILTERED", vars)
-        sendCopyTradingMessage(message, messageCategory, "filtered", TelegramNotificationAudience.STANDARD)
+        sendCopyTradingMessage(message, messageCategory, TelegramNotificationAudience.STANDARD)
     }
 
     private fun buildOrderFilteredVariables(
@@ -875,19 +870,17 @@ class TelegramNotificationService(
     private suspend fun sendCopyTradingMessage(
         message: String,
         category: String?,
-        notificationType: String,
         fallbackAudience: TelegramNotificationAudience
     ) {
-        sendCopyTradingMessage(message, listOf(category), notificationType, fallbackAudience)
+        sendCopyTradingMessage(message, listOf(category), fallbackAudience)
     }
 
     private suspend fun sendCopyTradingMessage(
         message: String,
         categories: Collection<String?>,
-        notificationType: String,
         fallbackAudience: TelegramNotificationAudience
     ) {
-        val routedConfigs = findCopyTradingRouteConfigs(categories, notificationType, fallbackAudience)
+        val routedConfigs = findCopyTradingRouteConfigs(categories, fallbackAudience)
         if (routedConfigs != null) {
             sendMessageToConfigs(message, routedConfigs)
             return
@@ -897,10 +890,13 @@ class TelegramNotificationService(
     }
 
     private suspend fun findCopyTradingRouteConfigs(
-        categories: Collection<String?>,
-        notificationType: String,
+        leaderGroups: Collection<String?>,
         fallbackAudience: TelegramNotificationAudience
     ): List<NotificationConfigDto>? = withContext(Dispatchers.IO) {
+        if (fallbackAudience != TelegramNotificationAudience.MONITOR_ONLY) {
+            return@withContext null
+        }
+
         val audienceConfigs = filterTelegramConfigsForAudience(
             notificationConfigService.getEnabledConfigsByType("telegram"),
             fallbackAudience,
@@ -913,7 +909,7 @@ class TelegramNotificationService(
         if (hasRobotFilters) {
             return@withContext audienceConfigs.filter { config ->
                 val telegramConfig = config.config as? NotificationConfigData.Telegram ?: return@filter false
-                telegramConfigMatchesCopyTradingRoute(telegramConfig.data, categories, notificationType)
+                telegramConfigMatchesCopyTradingRoute(telegramConfig.data, leaderGroups)
             }
         }
 
@@ -991,12 +987,12 @@ class TelegramNotificationService(
         currentPositionSummary: String,
         locale: java.util.Locale? = null,
         copyTradingId: Long? = null,
-        messageCategory: String? = null
+        leaderGroup: String? = null
     ) {
         val currentLocale = locale ?: try {
             LocaleContextHolder.getLocale()
         } catch (e: Exception) {
-            logger.warn("鑾峰彇璇█璁剧疆澶辫触锛屼娇鐢ㄩ粯璁よ瑷€: ${e.message}", e)
+            logger.warn("获取语言设置失败，使用默认语言: ${e.message}", e)
             java.util.Locale("zh", "CN")
         }
         val calculateFailed = messageSource.getMessage("notification.order.calculate_failed", null, "计算失败", currentLocale)
@@ -1048,7 +1044,7 @@ class TelegramNotificationService(
                 "time" to DateUtils.formatDateTime()
             )
         )
-        sendCopyTradingMessage(message, messageCategory, "monitor", TelegramNotificationAudience.MONITOR_ONLY)
+        sendCopyTradingMessage(message, leaderGroup, TelegramNotificationAudience.MONITOR_ONLY)
     }
 
     suspend fun sendMonitorSameSideNotification(
@@ -1057,7 +1053,7 @@ class TelegramNotificationService(
         outcome: String,
         sameSidePositionReport: String,
         sameSideCount: Int,
-        messageCategories: Collection<String?> = emptyList()
+        leaderGroups: Collection<String?> = emptyList()
     ) {
         val message = notificationTemplateService.renderTemplate(
             "MONITOR_SAME_SIDE",
@@ -1070,7 +1066,7 @@ class TelegramNotificationService(
                 "time" to DateUtils.formatDateTime()
             )
         )
-        sendCopyTradingMessage(message, messageCategories, "monitor", TelegramNotificationAudience.MONITOR_ONLY)
+        sendCopyTradingMessage(message, leaderGroups, TelegramNotificationAudience.MONITOR_ONLY)
     }
 
     suspend fun sendMonitorOppositeNotification(
@@ -1081,7 +1077,7 @@ class TelegramNotificationService(
         outcomeB: String,
         sideBPositionReport: String,
         hedgePositionReport: String,
-        messageCategories: Collection<String?> = emptyList()
+        leaderGroups: Collection<String?> = emptyList()
     ) {
         val message = notificationTemplateService.renderTemplate(
             "MONITOR_OPPOSITE_SIDE",
@@ -1096,7 +1092,7 @@ class TelegramNotificationService(
                 "time" to DateUtils.formatDateTime()
             )
         )
-        sendCopyTradingMessage(message, messageCategories, "monitor", TelegramNotificationAudience.MONITOR_ONLY)
+        sendCopyTradingMessage(message, leaderGroups, TelegramNotificationAudience.MONITOR_ONLY)
     }
 
     private suspend fun sendTelegramMessage(config: TelegramConfigData, message: String): Boolean {

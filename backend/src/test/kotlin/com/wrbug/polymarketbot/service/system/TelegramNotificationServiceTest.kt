@@ -33,32 +33,29 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
-    fun `copy trading route should match category and notification type`() {
+    fun `copy trading route should match leader custom group only`() {
         val route = CopyTradingTelegramRoute(
             telegramConfigId = 1L,
-            categories = listOf("sports"),
-            notificationTypes = listOf("success")
+            leaderGroups = listOf("体育组")
         )
 
-        assertTrue(route.matches("体育", "success"))
-        assertFalse(route.matches("crypto", "success"))
-        assertFalse(route.matches("sports", "filtered"))
+        assertTrue(route.matches("体育组"))
+        assertFalse(route.matches("政治组"))
+        assertFalse(route.matches(null))
     }
 
     @Test
-    fun `telegram config route filters should match category and notification type`() {
+    fun `telegram config route filters should match leader custom group`() {
         val config = TelegramConfigData(
             botToken = "token",
             chatIds = listOf("chat"),
             monitorModeEnabled = true,
-            copyTradingCategories = listOf("sports"),
-            copyTradingNotificationTypes = listOf("monitor")
+            copyTradingLeaderGroups = listOf("体育组")
         )
 
         assertTrue(hasCopyTradingRouteFilters(config))
-        assertTrue(telegramConfigMatchesCopyTradingRoute(config, "体育", "monitor"))
-        assertFalse(telegramConfigMatchesCopyTradingRoute(config, "crypto", "monitor"))
-        assertFalse(telegramConfigMatchesCopyTradingRoute(config, "sports", "success"))
+        assertTrue(telegramConfigMatchesCopyTradingRoute(config, "体育组"))
+        assertFalse(telegramConfigMatchesCopyTradingRoute(config, "政治组"))
     }
 
     @Test
@@ -66,13 +63,25 @@ class TelegramNotificationServiceTest {
         val config = TelegramConfigData(
             botToken = "token",
             chatIds = listOf("chat"),
-            copyTradingCategories = emptyList(),
-            copyTradingNotificationTypes = emptyList()
+            copyTradingLeaderGroups = emptyList()
         )
 
         assertFalse(hasCopyTradingRouteFilters(config))
-        assertTrue(telegramConfigMatchesCopyTradingRoute(config, "crypto", "success"))
-        assertTrue(telegramConfigMatchesCopyTradingRoute(config, "sports", "monitor"))
+        assertTrue(telegramConfigMatchesCopyTradingRoute(config, "体育组"))
+        assertTrue(telegramConfigMatchesCopyTradingRoute(config, null))
+    }
+
+    @Test
+    fun `old category and message type filters should not activate monitor leader group routing`() {
+        val config = TelegramConfigData(
+            botToken = "token",
+            chatIds = listOf("chat"),
+            copyTradingCategories = listOf("sports"),
+            copyTradingNotificationTypes = listOf("monitor")
+        )
+
+        assertFalse(hasCopyTradingRouteFilters(config))
+        assertTrue(telegramConfigMatchesCopyTradingRoute(config, "体育组"))
     }
 
     @Test

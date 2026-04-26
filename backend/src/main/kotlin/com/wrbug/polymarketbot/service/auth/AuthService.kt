@@ -182,7 +182,7 @@ class AuthService(
                 updatedAt = now
             )
             userRepository.save(defaultAdmin)
-            logger.info("鎵撳寘鐗堟湰宸茶嚜鍔ㄥ垱寤洪粯璁ょ鐞嗗憳锛歶sername=$packagedDefaultAdminUsername")
+            logger.info("打包版本已自动创建默认管理员：username=$packagedDefaultAdminUsername")
         }
     }
     

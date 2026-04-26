@@ -27,7 +27,7 @@ internal data class LeaderMonitorPosition(
     val outcome: String,
     val currentValue: BigDecimal,
     val avgPrice: BigDecimal,
-    val messageCategory: String?
+    val leaderGroup: String?
 )
 
 internal data class SameSideMonitorAlert(
@@ -38,7 +38,7 @@ internal data class SameSideMonitorAlert(
     val outcome: String,
     val sameSidePositionReport: String,
     val sameSideCount: Int,
-    val messageCategories: List<String?>,
+    val leaderGroups: List<String?>,
     val fingerprint: String
 )
 
@@ -51,7 +51,7 @@ internal data class OppositeMonitorAlert(
     val outcomeB: String,
     val sideBPositionReport: String,
     val hedgePositionReport: String,
-    val messageCategories: List<String?>,
+    val leaderGroups: List<String?>,
     val fingerprint: String
 )
 
@@ -141,7 +141,7 @@ internal fun buildSameSideMonitorAlerts(positions: List<LeaderMonitorPosition>):
                 outcome = key.outcome,
                 sameSidePositionReport = buildSameSidePositionReport(normalizedItems),
                 sameSideCount = normalizedItems.size,
-                messageCategories = normalizedItems.map { it.messageCategory }.distinct(),
+                leaderGroups = normalizedItems.map { it.leaderGroup }.distinct(),
                 fingerprint = normalizedItems.joinToString("|") {
                     "${it.leaderId}:${formatMonitorDecimal(it.currentValue)}:${formatMonitorDecimal(it.avgPrice)}"
                 }
@@ -189,7 +189,7 @@ internal fun buildOppositeMonitorAlert(positions: List<LeaderMonitorPosition>): 
         outcomeB = sideB.key.outcome,
         sideBPositionReport = buildSameSidePositionReport(sideBItems),
         hedgePositionReport = buildHedgePositionReport(positions),
-        messageCategories = positions.map { it.messageCategory }.distinct(),
+        leaderGroups = positions.map { it.leaderGroup }.distinct(),
         fingerprint = fingerprintParts.joinToString("|")
     )
 }
@@ -256,7 +256,7 @@ class LeaderMonitorAlertService(
             size = trade.size,
             currentPositionSummary = buildMonitorPositionSummary(currentMarketPositions),
             copyTradingId = copyTrading?.id,
-            messageCategory = leader.category ?: leader.customGroup
+            leaderGroup = leader.customGroup
         )
     }
 
@@ -310,7 +310,7 @@ class LeaderMonitorAlertService(
                     toLeaderMonitorPosition(
                         leaderId = leaderId,
                         leaderName = leader.leaderName,
-                        messageCategory = leader.category ?: leader.customGroup,
+                        leaderGroup = leader.customGroup,
                         position = position
                     )
                 }
@@ -325,7 +325,7 @@ class LeaderMonitorAlertService(
     private fun toLeaderMonitorPosition(
         leaderId: Long,
         leaderName: String?,
-        messageCategory: String?,
+        leaderGroup: String?,
         position: PositionResponse
     ): LeaderMonitorPosition? {
         val marketId = position.conditionId ?: return null
@@ -350,7 +350,7 @@ class LeaderMonitorAlertService(
             outcome = position.outcome?.trim().takeUnless { it.isNullOrBlank() } ?: outcomeIndex.toString(),
             currentValue = currentValue,
             avgPrice = avgPrice,
-            messageCategory = messageCategory
+            leaderGroup = leaderGroup
         )
     }
 
@@ -372,7 +372,7 @@ class LeaderMonitorAlertService(
                     outcome = alert.outcome,
                     sameSidePositionReport = alert.sameSidePositionReport,
                     sameSideCount = alert.sameSideCount,
-                    messageCategories = alert.messageCategories
+                    leaderGroups = alert.leaderGroups
                 )
                 sameSideFingerprints[key] = alert.fingerprint
             }
@@ -393,7 +393,7 @@ class LeaderMonitorAlertService(
                 outcomeB = oppositeAlert.outcomeB,
                 sideBPositionReport = oppositeAlert.sideBPositionReport,
                 hedgePositionReport = oppositeAlert.hedgePositionReport,
-                messageCategories = oppositeAlert.messageCategories
+                leaderGroups = oppositeAlert.leaderGroups
             )
             oppositeFingerprints[marketId] = oppositeAlert.fingerprint
         }

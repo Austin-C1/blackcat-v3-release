@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Form, Input, Alert, Button, message, Select } from 'antd'
+import { Form, Input, Alert, Button, message } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
 import { useTranslation } from 'react-i18next'
 import { apiService } from '../../services/api'
@@ -13,18 +13,6 @@ const STRONG_TAG_PATTERN = /<strong>(.*?)<\/strong>/gi
 const HTML_TAG_PATTERN = /<[^>]+>/g
 
 const stripHtml = (value: string): string => value.replace(HTML_TAG_PATTERN, '')
-
-const copyTradingCategoryOptions = [
-  { label: '体育', value: 'sports' },
-  { label: '加密', value: 'crypto' },
-]
-
-const copyTradingNotificationTypeOptions = [
-  { label: '成功订单', value: 'success' },
-  { label: '失败订单', value: 'failed' },
-  { label: '过滤订单', value: 'filtered' },
-  { label: '监控提醒（含同向/反向）', value: 'monitor' },
-]
 
 const renderInstruction = (text: string): ReactNode[] => {
   const nodes: ReactNode[] = []
@@ -162,31 +150,6 @@ const TelegramConfigForm: React.FC<TelegramConfigFormProps> = ({ form }) => {
         </Form.Item>
       </Form.Item>
 
-      <Form.Item
-        label="监控分类"
-        name={['config', 'copyTradingCategories']}
-        extra="不选择表示接收全部分类。"
-      >
-        <Select
-          mode="multiple"
-          allowClear
-          placeholder="选择这个机器人接收的盘口分类"
-          options={copyTradingCategoryOptions}
-        />
-      </Form.Item>
-
-      <Form.Item
-        label="消息类型"
-        name={['config', 'copyTradingNotificationTypes']}
-        extra="不选择表示接收全部类型；只想收监控消息时选择“监控提醒”，同向/反向也会按监控分类筛选。"
-      >
-        <Select
-          mode="multiple"
-          allowClear
-          placeholder="选择这个机器人接收的消息类型"
-          options={copyTradingNotificationTypeOptions}
-        />
-      </Form.Item>
     </>
   )
 }

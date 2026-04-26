@@ -15,6 +15,7 @@ data class TelegramConfigData(
     val chatIds: List<String>,
     val monitorModeEnabled: Boolean = false,
     val marketBettingQueryEnabled: Boolean = false,
+    val copyTradingLeaderGroups: List<String> = emptyList(),
     val copyTradingCategories: List<String> = emptyList(),
     val copyTradingNotificationTypes: List<String> = emptyList()
 )
