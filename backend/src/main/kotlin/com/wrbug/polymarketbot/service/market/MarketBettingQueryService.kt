@@ -32,7 +32,7 @@ class MarketBettingQueryService(
     suspend fun search(query: String, limit: Int = 5, date: String? = null): Result<MarketBettingSearchResponse> = runCatching {
         val normalizedQuery = query.trim()
         val normalizedDate = MarketBettingDateFilter.normalize(date)
-        require(normalizedQuery.isNotEmpty()) { "请输入比赛或盘口名称" }
+        require(normalizedQuery.isNotEmpty()) { "\u8bf7\u8f93\u5165\u6bd4\u8d5b\u6216\u76d8\u53e3\u540d\u79f0" }
 
         val response = gammaApi.publicSearch(
             query = normalizedQuery,
@@ -41,7 +41,7 @@ class MarketBettingQueryService(
             keepClosedMarkets = 0
         )
         if (!response.isSuccessful) {
-            throw IllegalStateException("Polymarket 搜索失败: HTTP ${response.code()}")
+            throw IllegalStateException("Polymarket \u641c\u7d22\u5931\u8d25: HTTP ${response.code()}")
         }
 
         val events = response.body()?.events.orEmpty()
@@ -57,7 +57,7 @@ class MarketBettingQueryService(
             val event = if (!slug.isNullOrBlank()) {
                 val response = gammaApi.getEventBySlug(slug.trim())
                 if (!response.isSuccessful) {
-                    throw IllegalStateException("Polymarket 事件详情失败: HTTP ${response.code()}")
+                    throw IllegalStateException("Polymarket \u4e8b\u4ef6\u8be6\u60c5\u5931\u8d25: HTTP ${response.code()}")
                 }
                 val body = response.body() ?: throw IllegalStateException("Polymarket 未返回事件详情")
                 GammaSearchEventItem(
@@ -68,6 +68,11 @@ class MarketBettingQueryService(
                     closed = false,
                     startDate = body.startDate,
                     endDate = body.endDate,
+                    volume = body.volume,
+                    volumeClob = body.volumeClob,
+                    liquidity = body.liquidity,
+                    liquidityClob = body.liquidityClob,
+                    openInterest = body.openInterest,
                     markets = body.markets
                 )
             } else {
@@ -75,7 +80,7 @@ class MarketBettingQueryService(
                 val first = searchResult.events.firstOrNull() ?: throw IllegalArgumentException("未找到相关盘口")
                 val response = gammaApi.getEventBySlug(first.slug)
                 if (!response.isSuccessful) {
-                    throw IllegalStateException("Polymarket 事件详情失败: HTTP ${response.code()}")
+                    throw IllegalStateException("Polymarket \u4e8b\u4ef6\u8be6\u60c5\u5931\u8d25: HTTP ${response.code()}")
                 }
                 val body = response.body() ?: throw IllegalStateException("Polymarket 未返回事件详情")
                 GammaSearchEventItem(
@@ -86,6 +91,11 @@ class MarketBettingQueryService(
                     closed = false,
                     startDate = body.startDate,
                     endDate = body.endDate,
+                    volume = body.volume,
+                    volumeClob = body.volumeClob,
+                    liquidity = body.liquidity,
+                    liquidityClob = body.liquidityClob,
+                    openInterest = body.openInterest,
                     markets = body.markets
                 )
             }
@@ -94,6 +104,7 @@ class MarketBettingQueryService(
             val summary = event.toSummary()
             val markets = event.markets.orEmpty()
                 .filter { !it.conditionId.isNullOrBlank() }
+                .filter { market -> MarketBettingMarketFilter.belongsToEvent(market, event) }
                 .filter { market -> normalizedDate == null || MarketBettingDateFilter.matches(market, normalizedDate) }
                 .take(marketLimit.coerceIn(1, 100))
 
@@ -216,8 +227,8 @@ class MarketBettingQueryService(
                 ?: "market",
             line = line?.takeIf { it.isNotBlank() },
             groupItemTitle = groupItemTitle?.takeIf { it.isNotBlank() },
-            volume = formatDecimal(volumeNum ?: volume?.toDoubleOrNull()),
-            liquidity = formatDecimal(liquidityNum ?: liquidity?.toDoubleOrNull()),
+            volume = formatDecimal(volumeClob ?: volumeNum ?: volume?.toDoubleOrNull()),
+            liquidity = formatDecimal(liquidityClob ?: liquidityNum ?: liquidity?.toDoubleOrNull()),
             outcomes = outcomeDetails
         )
     }
@@ -228,8 +239,8 @@ class MarketBettingQueryService(
             id = id.orEmpty(),
             slug = slugValue,
             title = title.orEmpty(),
-            volume = formatDecimal(volume ?: markets.orEmpty().sumOf { it.volumeNum ?: it.volume?.toDoubleOrNull() ?: 0.0 }),
-            liquidity = formatDecimal(liquidity ?: markets.orEmpty().sumOf { it.liquidityNum ?: it.liquidity?.toDoubleOrNull() ?: 0.0 }),
+            volume = formatDecimal(volumeClob ?: volume ?: markets.orEmpty().sumOf { it.volumeClob ?: it.volumeNum ?: it.volume?.toDoubleOrNull() ?: 0.0 }),
+            liquidity = formatDecimal(liquidityClob ?: liquidity ?: markets.orEmpty().sumOf { it.liquidityClob ?: it.liquidityNum ?: it.liquidity?.toDoubleOrNull() ?: 0.0 }),
             openInterest = formatDecimal(openInterest),
             active = active ?: false,
             closed = closed ?: false,
@@ -327,15 +338,27 @@ object MarketBettingDateFilter {
 object MarketBettingTelegramCommandParser {
     fun parse(text: String?): MarketBettingTelegramCommand? {
         val trimmed = text?.trim().orEmpty()
-        val prefixes = listOf("/盘口", "盘口", "/pan", "pan", "/market", "market")
+        val prefixes = listOf(
+            "/\u76d8\u53e3",
+            "\u76d8\u53e3",
+            "/pan",
+            "pan",
+            "/market",
+            "market"
+        )
         val prefix = prefixes.firstOrNull { trimmed.startsWith("$it ", ignoreCase = true) }
         val rawQuery = if (prefix != null) {
             trimmed.removePrefix(prefix).trim()
         } else {
-            trimmed
-                .takeIf { it.isNotBlank() }
-                ?.takeUnless { it.startsWith("/") }
-                ?: return null
+            val firstToken = trimmed.substringBefore(" ")
+            when {
+                trimmed.isBlank() -> return null
+                trimmed.startsWith("/") && " " !in trimmed -> return null
+                trimmed.startsWith("/") && firstToken.lowercase() in setOf("/start", "/help") -> return null
+                trimmed.startsWith("/") -> trimmed.substringAfter(" ").trim()
+                firstToken != trimmed && firstToken.any { it.code > 127 } -> trimmed.substringAfter(" ").trim()
+                else -> trimmed
+            }
         }
         val (query, date) = MarketBettingDateFilter.extractFromQuery(rawQuery)
         return query.takeIf { it.isNotBlank() }?.let { MarketBettingTelegramCommand(it, date) }
@@ -344,45 +367,107 @@ object MarketBettingTelegramCommandParser {
 
 data class MarketBettingTelegramCommand(val query: String, val date: String? = null)
 
+object MarketBettingMarketFilter {
+    fun belongsToEvent(market: GammaEventMarketItem, event: GammaSearchEventItem): Boolean {
+        val eventSlug = event.slug.orEmpty().trim().lowercase()
+        val marketSlug = market.slug.orEmpty().trim().lowercase()
+        if (eventSlug.isNotBlank() && marketSlug.isNotBlank() && marketSlug.startsWith(eventSlug)) {
+            return true
+        }
+
+        val eventTitle = normalizeText(event.title)
+        val marketQuestion = normalizeText(market.question)
+        return eventTitle.isNotBlank() && eventTitle == marketQuestion
+    }
+
+    private fun normalizeText(value: String?): String =
+        value.orEmpty()
+            .lowercase()
+            .replace(Regex("""\s+"""), " ")
+            .replace(" vs. ", " vs ")
+            .trim()
+}
+
+object MarketBettingMarketText {
+    private val overUnderMarketTypes = setOf(
+        "totals",
+        "first_half_totals",
+        "points",
+        "rebounds",
+        "assists",
+        "threes",
+        "blocks",
+        "steals"
+    )
+
+    fun displayTitle(value: String): String =
+        value.replace(Regex("""\bO/U\b""", RegexOption.IGNORE_CASE), "\u5927\u5c0f")
+
+    fun displayType(marketType: String, line: String?): String =
+        listOfNotNull(marketType.takeIf { it.isNotBlank() }, line?.takeIf { it.isNotBlank() }).joinToString(" ")
+
+    fun displayOutcomeName(name: String, title: String, marketType: String): String {
+        if (!isOverUnderMarket(title, marketType)) return name
+        return when (name.trim().lowercase()) {
+            "yes", "over" -> "\u5927"
+            "no", "under" -> "\u5c0f"
+            else -> name
+        }
+    }
+
+    private fun isOverUnderMarket(title: String, marketType: String): Boolean {
+        val type = marketType.trim().lowercase()
+        return type in overUnderMarketTypes || title.contains("O/U", ignoreCase = true)
+    }
+}
+
 object MarketBettingQueryFormatter {
     fun formatSearch(response: MarketBettingSearchResponse): String {
-        if (response.events.isEmpty()) return "未找到相关盘口：${response.query}"
+        if (response.events.isEmpty()) return "\u672a\u627e\u5230\u76f8\u5173\u76d8\u53e3\uff1a${response.query}"
         return buildString {
-            appendLine("盘口投注额查询")
-            appendLine("关键词: ${escape(response.query)}")
+            appendLine("\u76d8\u53e3\u6295\u6ce8\u67e5\u8be2")
+            appendLine("\u5173\u952e\u8bcd: ${escape(response.query)}")
             response.events.forEachIndexed { index, event ->
                 appendLine()
                 appendLine("${index + 1}. ${escape(event.title)}")
-                appendLine("总成交额: ${formatUsdc(event.volume)}")
-                appendLine("盘口数: ${event.marketsCount} | ${if (event.closed) "已关闭" else "交易中"}")
+                appendLine("\u603b\u6210\u4ea4\u989d: ${formatUsdc(event.volume)}")
+                appendLine("\u76d8\u53e3\u6570: ${event.marketsCount} | ${if (event.closed) "\u5df2\u5173\u95ed" else "\u4ea4\u6613\u4e2d"}")
                 appendLine(event.url)
             }
             appendLine()
-            append("发送：盘口 具体比赛名，可查看明细。")
+            append("\u53d1\u9001\uff1a\u76d8\u53e3 \u5177\u4f53\u6bd4\u8d5b\u540d\uff0c\u53ef\u67e5\u770b\u660e\u7ec6\u3002")
         }
+
     }
 
     fun formatEventDetail(detail: MarketBettingEventDetail): String {
         return buildString {
-            appendLine("盘口投注额查询")
+            appendLine("\u76d8\u53e3\u6295\u6ce8\u67e5\u8be2")
             appendLine(escape(detail.event.title))
-            appendLine("总成交额: ${formatUsdc(detail.event.volume)}")
-            appendLine("流动性: ${formatUsdc(detail.event.liquidity)}")
-            appendLine("盘口数: ${detail.event.marketsCount}")
+            appendLine("\u603b\u6210\u4ea4\u989d: ${formatUsdc(detail.event.volume)}")
+            appendLine("\u603b\u6302\u5355\u91d1\u989d: ${formatUsdc(detail.event.liquidity)}")
+            appendLine("\u76d8\u53e3\u6570: ${detail.event.marketsCount}")
             appendLine(detail.event.url)
             detail.markets.forEachIndexed { index, market ->
                 appendLine()
-                val type = listOfNotNull(market.marketType, market.line).joinToString(" ")
-                appendLine("${index + 1}. ${escape(market.groupItemTitle ?: market.question)}")
-                appendLine("类型: $type | 成交额: ${formatUsdc(market.volume)}")
+                val title = MarketBettingMarketText.displayTitle(market.groupItemTitle ?: market.question)
+                val type = MarketBettingMarketText.displayType(market.marketType, market.line)
+                appendLine("${index + 1}. ${escape(title)}")
+                appendLine("\u7c7b\u578b: $type | \u6210\u4ea4\u989d: ${formatUsdc(market.volume)} | \u6302\u5355\u91d1\u989d: ${formatUsdc(market.liquidity)}")
                 market.outcomes.forEach { outcome ->
-                    appendLine("- ${escape(outcome.name)} ${formatPercent(outcome.odds)}")
-                    appendLine("  方向成交额: ${formatUsdc(outcome.tradedAmount)}")
-                    appendLine("  已成交 shares: ${formatShares(outcome.tradedShares)}")
-                    appendLine("  挂单: 买 ${formatUsdc(outcome.bidOrderAmount)} / 卖 ${formatUsdc(outcome.askOrderAmount)}")
+                    val outcomeName = MarketBettingMarketText.displayOutcomeName(
+                        outcome.name,
+                        market.groupItemTitle ?: market.question,
+                        market.marketType
+                    )
+                    appendLine("- ${escape(outcomeName)} ${formatPercent(outcome.odds)}")
+                    appendLine("  \u65b9\u5411\u6210\u4ea4\u989d: ${formatUsdc(outcome.tradedAmount)}")
+                    appendLine("  \u5df2\u6210\u4ea4 shares: ${formatShares(outcome.tradedShares)}")
+                    appendLine("  \u6302\u5355: \u4e70 ${formatUsdc(outcome.bidOrderAmount)} / \u5356 ${formatUsdc(outcome.askOrderAmount)}")
                 }
             }
         }.trim()
+
     }
 
     private fun formatUsdc(value: String): String {

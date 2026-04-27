@@ -5,6 +5,9 @@ import com.wrbug.polymarketbot.dto.MarketBettingEventSummary
 import com.wrbug.polymarketbot.dto.MarketBettingHolder
 import com.wrbug.polymarketbot.dto.MarketBettingMarketDetail
 import com.wrbug.polymarketbot.dto.MarketBettingOutcomeDetail
+import com.wrbug.polymarketbot.service.market.MarketBettingMarketText.displayOutcomeName
+import com.wrbug.polymarketbot.service.market.MarketBettingMarketText.displayTitle
+import com.wrbug.polymarketbot.service.market.MarketBettingMarketText.displayType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -87,6 +90,17 @@ class MarketBettingQueryFormatterTest {
         assertTrue(formatted.contains("挂单: 买 1,200 USDC / 卖 900 USDC"))
         assertFalse(formatted.contains("Top 5 shares"))
         assertFalse(formatted.contains("https://polymarket.com/profile/0xaaa"))
+    }
+
+    @Test
+    fun `formats over under markets with Chinese outcome names`() {
+        val title = displayTitle("Luquentz Dort: Points O/U 2.5")
+        val type = displayType("points", "2.5")
+
+        assertEquals("Luquentz Dort: Points 大小 2.5", title)
+        assertEquals("points 2.5", type)
+        assertEquals("大", displayOutcomeName("Yes", "Luquentz Dort: Points O/U 2.5", "points"))
+        assertEquals("小", displayOutcomeName("No", "Luquentz Dort: Points O/U 2.5", "points"))
     }
 
     @Test

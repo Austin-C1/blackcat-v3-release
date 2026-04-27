@@ -44,7 +44,9 @@ data class GammaSearchEventItem(
     val startDate: String? = null,
     val endDate: String? = null,
     val volume: Double? = null,
+    val volumeClob: Double? = null,
     val liquidity: Double? = null,
+    val liquidityClob: Double? = null,
     val openInterest: Double? = null,
     val volume24hr: Double? = null,
     val markets: List<GammaEventMarketItem>? = null
@@ -56,6 +58,11 @@ data class GammaEventBySlugResponse(
     val title: String? = null,
     val startDate: String? = null,
     val endDate: String? = null,
+    val volume: Double? = null,
+    val volumeClob: Double? = null,
+    val liquidity: Double? = null,
+    val liquidityClob: Double? = null,
+    val openInterest: Double? = null,
     val markets: List<GammaEventMarketItem>? = null
 )
 
@@ -74,6 +81,8 @@ data class GammaEventMarketItem(
     val outcomePrices: String? = null,
     val volume: String? = null,
     val liquidity: String? = null,
+    val volumeClob: Double? = null,
+    val liquidityClob: Double? = null,
     val volumeNum: Double? = null,
     val liquidityNum: Double? = null,
     val lastTradePrice: Double? = null,

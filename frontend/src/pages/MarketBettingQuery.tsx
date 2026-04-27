@@ -6,6 +6,7 @@ import type { ColumnsType } from 'antd/es/table'
 import { apiService } from '../services/api'
 import type { MarketBettingEventDetail, MarketBettingEventSummary, MarketBettingMarketDetail, MarketBettingOutcomeDetail, NotificationConfig } from '../types'
 import { extractTelegramConfig, normalizeChatIds } from './notificationSettingsHelpers'
+import { displayMarketTitle, displayOutcomeName } from './marketBettingDisplay'
 
 const { Title, Text } = Typography
 
@@ -26,7 +27,7 @@ const formatOdds = (value: string) => {
   return `${(amount * 100).toFixed(2).replace(/\.?0+$/, '')}%`
 }
 
-const OutcomeList = ({ outcomes }: { outcomes: MarketBettingOutcomeDetail[] }) => {
+const OutcomeList = ({ outcomes, marketTitle, marketType }: { outcomes: MarketBettingOutcomeDetail[]; marketTitle: string; marketType: string }) => {
   if (!outcomes.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无盘口明细" />
   return (
     <Table
@@ -35,7 +36,7 @@ const OutcomeList = ({ outcomes }: { outcomes: MarketBettingOutcomeDetail[] }) =
       pagination={false}
       dataSource={outcomes}
       columns={[
-        { title: '方向', dataIndex: 'name', width: 140 },
+        { title: '方向', dataIndex: 'name', width: 140, render: (value) => displayOutcomeName(value, marketTitle, marketType) },
         { title: '当前赔率', dataIndex: 'odds', width: 120, render: (value) => <Tag color="blue">{formatOdds(value)}</Tag> },
         { title: '方向成交额', dataIndex: 'tradedAmount', width: 140, render: formatUsdc },
         { title: '已成交 shares', dataIndex: 'tradedShares', width: 150, render: (value) => Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 }) },
@@ -157,7 +158,7 @@ const MarketBettingQuery: React.FC = () => {
       ),
     },
     { title: '总成交额', dataIndex: 'volume', width: 150, render: formatUsdc },
-    { title: '流动性', dataIndex: 'liquidity', width: 140, render: formatUsdc },
+    { title: '挂单金额', dataIndex: 'liquidity', width: 140, render: formatUsdc },
     { title: '盘口数', dataIndex: 'marketsCount', width: 90 },
     {
       title: '状态',
@@ -173,11 +174,11 @@ const MarketBettingQuery: React.FC = () => {
       dataIndex: 'question',
       render: (_, record) => (
         <Space direction="vertical" size={2}>
-          <Text strong>{record.groupItemTitle || record.question}</Text>
+          <Text strong>{displayMarketTitle(record.groupItemTitle || record.question)}</Text>
           <Space size={6} wrap>
             <Tag>{record.marketType}{record.line ? ` ${record.line}` : ''}</Tag>
             <Text type="secondary">成交额 {formatUsdc(record.volume)}</Text>
-            <Text type="secondary">流动性 {formatUsdc(record.liquidity)}</Text>
+            <Text type="secondary">挂单金额 {formatUsdc(record.liquidity)}</Text>
           </Space>
         </Space>
       ),
@@ -246,7 +247,7 @@ const MarketBettingQuery: React.FC = () => {
                 <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                   <Space wrap>
                     <Tag color="blue">总成交额 {formatUsdc(detail.event.volume)}</Tag>
-                    <Tag color="green">流动性 {formatUsdc(detail.event.liquidity)}</Tag>
+                    <Tag color="green">总挂单金额 {formatUsdc(detail.event.liquidity)}</Tag>
                     <Tag>盘口数 {detail.event.marketsCount}</Tag>
                   </Space>
                   <Table
@@ -254,7 +255,7 @@ const MarketBettingQuery: React.FC = () => {
                     columns={marketColumns}
                     dataSource={detail.markets}
                     pagination={{ pageSize: 10 }}
-                    expandable={{ expandedRowRender: (record) => <OutcomeList outcomes={record.outcomes} /> }}
+                    expandable={{ expandedRowRender: (record) => <OutcomeList outcomes={record.outcomes} marketTitle={record.groupItemTitle || record.question} marketType={record.marketType} /> }}
                   />
                 </Space>
               ) : (

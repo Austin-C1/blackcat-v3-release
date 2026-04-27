@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { displayMarketTitle, displayOutcomeName } from './marketBettingDisplay'
 
 describe('market betting query page', () => {
   const source = () => readFileSync(join(process.cwd(), 'src', 'pages', 'MarketBettingQuery.tsx'), 'utf8')
@@ -29,5 +30,11 @@ describe('market betting query page', () => {
     expect(pageSource).toContain("values.date?.format('YYYY-MM-DD')")
     expect(pageSource).toContain('date })')
     expect(pageSource).toContain('marketLimit: 100, date')
+  })
+
+  it('displays over under markets as Chinese big and small', () => {
+    expect(displayMarketTitle('Luquentz Dort: Points O/U 2.5')).toBe('Luquentz Dort: Points 大小 2.5')
+    expect(displayOutcomeName('Yes', 'Luquentz Dort: Points O/U 2.5', 'points')).toBe('大')
+    expect(displayOutcomeName('No', 'Luquentz Dort: Points O/U 2.5', 'points')).toBe('小')
   })
 })

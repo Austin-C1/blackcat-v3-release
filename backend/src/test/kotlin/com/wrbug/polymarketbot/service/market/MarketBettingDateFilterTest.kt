@@ -43,4 +43,19 @@ class MarketBettingDateFilterTest {
         assertTrue(MarketBettingDateFilter.matches(market, "2026-04-26"))
         assertFalse(MarketBettingDateFilter.matches(market, "2026-04-28"))
     }
+
+    @Test
+    fun `keeps only markets that belong to the selected event slug`() {
+        val selectedEvent = GammaSearchEventItem(
+            slug = "nba-okc-phx-2026-04-27",
+            title = "Thunder vs. Suns"
+        )
+        val sameEventMarket = GammaEventMarketItem(slug = "nba-okc-phx-2026-04-27-luquentz-dort-points")
+        val otherEventMarket = GammaEventMarketItem(slug = "nba-hou-lal-2026-04-27-jalen-green-points")
+        val exactTitleFallbackMarket = GammaEventMarketItem(slug = "thunder-vs-suns", question = "Thunder vs. Suns")
+
+        assertTrue(MarketBettingMarketFilter.belongsToEvent(sameEventMarket, selectedEvent))
+        assertTrue(MarketBettingMarketFilter.belongsToEvent(exactTitleFallbackMarket, selectedEvent))
+        assertFalse(MarketBettingMarketFilter.belongsToEvent(otherEventMarket, selectedEvent))
+    }
 }
