@@ -51,6 +51,7 @@ export interface MarketBettingOutcomeDetail {
   tokenId: string
   odds: string
   tradedShares: string
+  tradedAmount: string
   bidOrderAmount: string
   askOrderAmount: string
   topHolders: MarketBettingHolder[]

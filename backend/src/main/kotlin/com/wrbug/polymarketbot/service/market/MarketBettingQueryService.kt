@@ -29,8 +29,9 @@ class MarketBettingQueryService(
     private val dataApi = retrofitFactory.createDataApi()
     private val clobApi = retrofitFactory.createClobApiWithoutAuth()
 
-    suspend fun search(query: String, limit: Int = 5): Result<MarketBettingSearchResponse> = runCatching {
+    suspend fun search(query: String, limit: Int = 5, date: String? = null): Result<MarketBettingSearchResponse> = runCatching {
         val normalizedQuery = query.trim()
+        val normalizedDate = MarketBettingDateFilter.normalize(date)
         require(normalizedQuery.isNotEmpty()) { "请输入比赛或盘口名称" }
 
         val response = gammaApi.publicSearch(
@@ -45,12 +46,13 @@ class MarketBettingQueryService(
 
         val events = response.body()?.events.orEmpty()
             .filter { !it.slug.isNullOrBlank() && !it.title.isNullOrBlank() }
+            .filter { event -> normalizedDate == null || MarketBettingDateFilter.matches(event, normalizedDate) }
             .map { it.toSummary() }
 
         MarketBettingSearchResponse(normalizedQuery, events)
     }
 
-    suspend fun detail(query: String? = null, slug: String? = null, marketLimit: Int = 30): Result<MarketBettingEventDetail> =
+    suspend fun detail(query: String? = null, slug: String? = null, marketLimit: Int = 30, date: String? = null): Result<MarketBettingEventDetail> =
         runCatching {
             val event = if (!slug.isNullOrBlank()) {
                 val response = gammaApi.getEventBySlug(slug.trim())
@@ -69,7 +71,7 @@ class MarketBettingQueryService(
                     markets = body.markets
                 )
             } else {
-                val searchResult = search(query.orEmpty(), 1).getOrThrow()
+                val searchResult = search(query.orEmpty(), 20, date).getOrThrow()
                 val first = searchResult.events.firstOrNull() ?: throw IllegalArgumentException("未找到相关盘口")
                 val response = gammaApi.getEventBySlug(first.slug)
                 if (!response.isSuccessful) {
@@ -88,9 +90,11 @@ class MarketBettingQueryService(
                 )
             }
 
+            val normalizedDate = MarketBettingDateFilter.normalize(date)
             val summary = event.toSummary()
             val markets = event.markets.orEmpty()
                 .filter { !it.conditionId.isNullOrBlank() }
+                .filter { market -> normalizedDate == null || MarketBettingDateFilter.matches(market, normalizedDate) }
                 .take(marketLimit.coerceIn(1, 100))
 
             val holderMap = loadHolders(markets.mapNotNull { it.conditionId }.distinct())
@@ -101,13 +105,14 @@ class MarketBettingQueryService(
                 }.awaitAll()
             }
 
-            summary.copy(marketsCount = event.markets?.size ?: details.size).let { resolvedSummary ->
+            summary.copy(marketsCount = details.size).let { resolvedSummary ->
                 MarketBettingEventDetail(resolvedSummary, details)
         }
     }
 
     private data class TradeSnapshot(
-        val tradedShares: String
+        val tradedShares: String,
+        val tradedAmount: String
     )
 
     private data class HolderSnapshot(
@@ -132,10 +137,10 @@ class MarketBettingQueryService(
                     val page = response.body().orEmpty()
                     trades += page
                     if (page.size < 1000) return@withContext MarketBettingTradeAggregator.summarizeByAsset(trades)
-                        .mapValues { (_, value) -> TradeSnapshot(value.tradedShares) }
+                        .mapValues { (_, value) -> TradeSnapshot(value.tradedShares, value.tradedAmount) }
                 }
                 MarketBettingTradeAggregator.summarizeByAsset(trades)
-                    .mapValues { (_, value) -> TradeSnapshot(value.tradedShares) }
+                    .mapValues { (_, value) -> TradeSnapshot(value.tradedShares, value.tradedAmount) }
             } catch (e: Exception) {
                 logger.warn("load trades failed: {}", e.message)
                 emptyMap()
@@ -192,6 +197,7 @@ class MarketBettingQueryService(
                         tradedShares = tradeMap[tokenId]?.tradedShares
                             ?: holderMap[tokenId]?.totalShares
                             ?: "0",
+                        tradedAmount = tradeMap[tokenId]?.tradedAmount ?: "0",
                         bidOrderAmount = formatDecimal(orderbook?.bids?.sumOrderAmount()),
                         askOrderAmount = formatDecimal(orderbook?.asks?.sumOrderAmount()),
                         topHolders = holderMap[tokenId]?.topHolders.orEmpty()
@@ -247,7 +253,8 @@ class MarketBettingQueryService(
 
 object MarketBettingTradeAggregator {
     data class TradeSummary(
-        val tradedShares: String
+        val tradedShares: String,
+        val tradedAmount: String
     )
 
     fun summarizeByAsset(trades: List<UserActivityResponse>): Map<String, TradeSummary> {
@@ -255,8 +262,65 @@ object MarketBettingTradeAggregator {
             .filter { !it.asset.isNullOrBlank() }
             .groupBy { it.asset.orEmpty() }
             .mapValues { (_, assetTrades) ->
-                TradeSummary(formatDecimal(assetTrades.sumOf { it.size ?: 0.0 }))
+                TradeSummary(
+                    tradedShares = formatDecimal(assetTrades.sumOf { it.size ?: 0.0 }),
+                    tradedAmount = formatDecimal(assetTrades.sumOf { (it.size ?: 0.0) * (it.price ?: 0.0) })
+                )
             }
+    }
+}
+
+object MarketBettingDateFilter {
+    private val isoDate = Regex("""\b(20\d{2})[-/](\d{1,2})[-/](\d{1,2})\b""")
+    private val monthDay = Regex("""\b(\d{1,2})/(\d{1,2})\b""")
+
+    fun normalize(date: String?): String? {
+        val value = date?.trim().orEmpty()
+        if (value.isBlank()) return null
+        isoDate.find(value)?.let { match ->
+            val year = match.groupValues[1]
+            val month = match.groupValues[2].padStart(2, '0')
+            val day = match.groupValues[3].padStart(2, '0')
+            return "$year-$month-$day"
+        }
+        monthDay.find(value)?.let { match ->
+            val month = match.groupValues[1].padStart(2, '0')
+            val day = match.groupValues[2].padStart(2, '0')
+            return "2026-$month-$day"
+        }
+        return null
+    }
+
+    fun extractFromQuery(query: String): Pair<String, String?> {
+        val isoMatch = isoDate.find(query)
+        val monthDayMatch = if (isoMatch == null) monthDay.find(query) else null
+        val match = isoMatch ?: monthDayMatch ?: return query.trim() to null
+        val normalizedDate = normalize(match.value)
+        val cleanedQuery = query.removeRange(match.range).trim().replace(Regex("""\s+"""), " ")
+        return cleanedQuery to normalizedDate
+    }
+
+    fun matches(event: GammaSearchEventItem, date: String): Boolean {
+        val eventDates = listOfNotNull(
+            event.startDate?.take(10),
+            event.endDate?.take(10),
+            event.slug?.let { extractDateFromSlug(it) }
+        )
+        if (eventDates.any { it == date }) return true
+        return event.markets.orEmpty().any { market -> matches(market, date) }
+    }
+
+    fun matches(market: GammaEventMarketItem, date: String): Boolean {
+        return listOfNotNull(
+            market.startDate?.take(10),
+            market.endDate?.take(10),
+            market.slug?.let { extractDateFromSlug(it) }
+        ).any { it == date }
+    }
+
+    private fun extractDateFromSlug(value: String): String? {
+        val match = Regex("""(20\d{2})-(\d{2})-(\d{2})""").find(value) ?: return null
+        return "${match.groupValues[1]}-${match.groupValues[2]}-${match.groupValues[3]}"
     }
 }
 
@@ -264,13 +328,21 @@ object MarketBettingTelegramCommandParser {
     fun parse(text: String?): MarketBettingTelegramCommand? {
         val trimmed = text?.trim().orEmpty()
         val prefixes = listOf("/盘口", "盘口", "/pan", "pan", "/market", "market")
-        val prefix = prefixes.firstOrNull { trimmed.startsWith("$it ", ignoreCase = true) } ?: return null
-        val query = trimmed.removePrefix(prefix).trim()
-        return query.takeIf { it.isNotBlank() }?.let { MarketBettingTelegramCommand(it) }
+        val prefix = prefixes.firstOrNull { trimmed.startsWith("$it ", ignoreCase = true) }
+        val rawQuery = if (prefix != null) {
+            trimmed.removePrefix(prefix).trim()
+        } else {
+            trimmed
+                .takeIf { it.isNotBlank() }
+                ?.takeUnless { it.startsWith("/") }
+                ?: return null
+        }
+        val (query, date) = MarketBettingDateFilter.extractFromQuery(rawQuery)
+        return query.takeIf { it.isNotBlank() }?.let { MarketBettingTelegramCommand(it, date) }
     }
 }
 
-data class MarketBettingTelegramCommand(val query: String)
+data class MarketBettingTelegramCommand(val query: String, val date: String? = null)
 
 object MarketBettingQueryFormatter {
     fun formatSearch(response: MarketBettingSearchResponse): String {
@@ -305,21 +377,9 @@ object MarketBettingQueryFormatter {
                 appendLine("类型: $type | 成交额: ${formatUsdc(market.volume)}")
                 market.outcomes.forEach { outcome ->
                     appendLine("- ${escape(outcome.name)} ${formatPercent(outcome.odds)}")
+                    appendLine("  方向成交额: ${formatUsdc(outcome.tradedAmount)}")
                     appendLine("  已成交 shares: ${formatShares(outcome.tradedShares)}")
                     appendLine("  挂单: 买 ${formatUsdc(outcome.bidOrderAmount)} / 卖 ${formatUsdc(outcome.askOrderAmount)}")
-                    appendLine("  Top 5 shares:")
-                    if (outcome.topHolders.isEmpty()) {
-                        appendLine("  无")
-                    } else {
-                        outcome.topHolders.forEachIndexed { holderIndex, holder ->
-                            val holderName = holder.name?.takeIf { it.isNotBlank() }
-                                ?: shortenWallet(holder.wallet)
-                            appendLine("  ${holderIndex + 1}. ${escape(holderName)} ${holder.shares} shares")
-                            if (holder.profileUrl.isNotBlank()) {
-                                appendLine("     ${holder.profileUrl}")
-                            }
-                        }
-                    }
                 }
             }
         }.trim()
@@ -338,10 +398,6 @@ object MarketBettingQueryFormatter {
     private fun formatShares(value: String): String {
         val amount = value.toBigDecimalOrNull() ?: return value
         return DecimalFormat("#,##0.####").format(amount)
-    }
-
-    private fun shortenWallet(wallet: String): String {
-        return if (wallet.length > 10) "${wallet.take(6)}...${wallet.takeLast(4)}" else wallet
     }
 
     private fun escape(value: String): String = value.replace("<", "&lt;").replace(">", "&gt;")

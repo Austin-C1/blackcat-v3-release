@@ -154,7 +154,7 @@ open class CopyOrderTrackingService(
 
                     Result.success(Unit)
                 } catch (e: Exception) {
-                    logger.error("澶勭悊浜ゆ槗寮傚父: leaderId=$leaderId, tradeId=${trade.id}", e)
+                    logger.error("处理交易异常: leaderId=$leaderId, tradeId=${trade.id}", e)
                     Result.failure(e)
                 }
             }
@@ -250,7 +250,7 @@ open class CopyOrderTrackingService(
 
             Result.success(Unit)
         } catch (e: Exception) {
-            logger.error("Failed to process buy trade: leaderId=$leaderId, tradeId=${trade.id}", e)
+            logger.error("处理交易异常: leaderId=$leaderId, tradeId=${trade.id}", e)
             Result.failure(e)
         }
     }
@@ -470,7 +470,7 @@ open class CopyOrderTrackingService(
 
             Result.success(Unit)
         } catch (e: Exception) {
-            logger.error("Failed to process sell trade: leaderId=$leaderId, tradeId=${trade.id}", e)
+            logger.error("处理交易异常: leaderId=$leaderId, tradeId=${trade.id}", e)
             Result.failure(e)
         }
     }

@@ -2,13 +2,15 @@ package com.wrbug.polymarketbot.dto
 
 data class MarketBettingSearchRequest(
     val query: String,
-    val limit: Int? = 5
+    val limit: Int? = 5,
+    val date: String? = null
 )
 
 data class MarketBettingDetailRequest(
     val query: String? = null,
     val slug: String? = null,
-    val marketLimit: Int? = 30
+    val marketLimit: Int? = 30,
+    val date: String? = null
 )
 
 data class MarketBettingSearchResponse(
@@ -55,6 +57,7 @@ data class MarketBettingOutcomeDetail(
     val tokenId: String,
     val odds: String,
     val tradedShares: String = "0",
+    val tradedAmount: String = "0",
     val bidOrderAmount: String,
     val askOrderAmount: String,
     val topHolders: List<MarketBettingHolder>

@@ -13,10 +13,21 @@ describe('market betting query page', () => {
     expect(pageSource).toContain('copyTradingNotificationTypes: telegram.copyTradingNotificationTypes || []')
   })
 
-  it('shows traded shares and holder profile links in market details', () => {
+  it('shows traded shares and traded amount without top holder links in market details', () => {
     const pageSource = source()
 
     expect(pageSource).toContain("title: '已成交 shares'")
-    expect(pageSource).toContain('holder.profileUrl')
+    expect(pageSource).toContain("dataIndex: 'tradedAmount'")
+    expect(pageSource).not.toContain('holder.profileUrl')
+    expect(pageSource).not.toContain("title: 'Top 5 shares 持仓'")
+  })
+
+  it('sends selected event date when searching markets', () => {
+    const pageSource = source()
+
+    expect(pageSource).toContain('DatePicker')
+    expect(pageSource).toContain("values.date?.format('YYYY-MM-DD')")
+    expect(pageSource).toContain('date })')
+    expect(pageSource).toContain('marketLimit: 100, date')
   })
 })

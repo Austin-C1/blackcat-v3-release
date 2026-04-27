@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Col, Empty, Form, Input, Row, Select, Space, Spin, Table, Tag, Typography, message } from 'antd'
+import { Button, Card, Col, DatePicker, Empty, Form, Input, Row, Select, Space, Spin, Table, Tag, Typography, message } from 'antd'
+import type { Dayjs } from 'dayjs'
 import { ReloadOutlined, SaveOutlined, SearchOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import { apiService } from '../services/api'
-import type { MarketBettingEventDetail, MarketBettingEventSummary, MarketBettingHolder, MarketBettingMarketDetail, MarketBettingOutcomeDetail, NotificationConfig } from '../types'
+import type { MarketBettingEventDetail, MarketBettingEventSummary, MarketBettingMarketDetail, MarketBettingOutcomeDetail, NotificationConfig } from '../types'
 import { extractTelegramConfig, normalizeChatIds } from './notificationSettingsHelpers'
 
 const { Title, Text } = Typography
 
 type FormValues = {
   query: string
+  date?: Dayjs | null
 }
 
 const formatUsdc = (value: string) => {
@@ -24,22 +26,6 @@ const formatOdds = (value: string) => {
   return `${(amount * 100).toFixed(2).replace(/\.?0+$/, '')}%`
 }
 
-const shortWallet = (wallet: string) => wallet.length > 12 ? `${wallet.slice(0, 6)}...${wallet.slice(-4)}` : wallet
-
-const HolderList = ({ holders }: { holders: MarketBettingHolder[] }) => {
-  if (!holders.length) return <Text type="secondary">暂无</Text>
-  return (
-    <Space direction="vertical" size={2}>
-      {holders.slice(0, 5).map((holder, index) => (
-        <Text key={`${holder.wallet}-${index}`} style={{ fontSize: 12 }}>
-          {index + 1}. {holder.name || shortWallet(holder.wallet)} {holder.shares} shares
-          {holder.profileUrl ? <> <a href={holder.profileUrl} target="_blank" rel="noreferrer">打开</a></> : null}
-        </Text>
-      ))}
-    </Space>
-  )
-}
-
 const OutcomeList = ({ outcomes }: { outcomes: MarketBettingOutcomeDetail[] }) => {
   if (!outcomes.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无盘口明细" />
   return (
@@ -51,10 +37,10 @@ const OutcomeList = ({ outcomes }: { outcomes: MarketBettingOutcomeDetail[] }) =
       columns={[
         { title: '方向', dataIndex: 'name', width: 140 },
         { title: '当前赔率', dataIndex: 'odds', width: 120, render: (value) => <Tag color="blue">{formatOdds(value)}</Tag> },
+        { title: '方向成交额', dataIndex: 'tradedAmount', width: 140, render: formatUsdc },
         { title: '已成交 shares', dataIndex: 'tradedShares', width: 150, render: (value) => Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 }) },
         { title: '买单额度', dataIndex: 'bidOrderAmount', width: 140, render: formatUsdc },
         { title: '卖单额度', dataIndex: 'askOrderAmount', width: 140, render: formatUsdc },
-        { title: 'Top 5 shares 持仓', dataIndex: 'topHolders', render: (holders) => <HolderList holders={holders} /> },
       ]}
     />
   )
@@ -119,10 +105,11 @@ const MarketBettingQuery: React.FC = () => {
 
   const search = async () => {
     const values = await form.validateFields()
+    const date = values.date?.format('YYYY-MM-DD')
     setLoading(true)
     setDetail(null)
     try {
-      const response = await apiService.marketBettingQuery.search({ query: values.query, limit: 8 })
+      const response = await apiService.marketBettingQuery.search({ query: values.query, limit: 8, date })
       if (response.data.code === 0 && response.data.data) {
         setEvents(response.data.data.events)
         if (response.data.data.events.length === 0) {
@@ -141,7 +128,9 @@ const MarketBettingQuery: React.FC = () => {
   const loadDetail = async (event: MarketBettingEventSummary) => {
     setDetailLoading(true)
     try {
-      const response = await apiService.marketBettingQuery.detail({ slug: event.slug, marketLimit: 50 })
+      const values = form.getFieldsValue()
+      const date = values.date?.format('YYYY-MM-DD')
+      const response = await apiService.marketBettingQuery.detail({ slug: event.slug, marketLimit: 100, date })
       if (response.data.code === 0 && response.data.data) {
         setDetail(response.data.data)
       } else {
@@ -206,6 +195,9 @@ const MarketBettingQuery: React.FC = () => {
           <Form.Item name="query" rules={[{ required: true, message: '请输入比赛名或盘口名' }]} style={{ flex: 1, minWidth: 280 }}>
             <Input placeholder="例如 Wild vs Stars、Trump、World Cup Winner" allowClear />
           </Form.Item>
+          <Form.Item name="date">
+            <DatePicker allowClear placeholder="选择比赛日期" style={{ width: 160 }} />
+          </Form.Item>
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit" icon={<SearchOutlined />} loading={loading}>查询</Button>
@@ -266,7 +258,7 @@ const MarketBettingQuery: React.FC = () => {
                   />
                 </Space>
               ) : (
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="点击搜索结果查看盘口、赔率、挂单额和 Top 5 shares 持仓" />
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="点击搜索结果查看盘口、赔率、方向成交额和挂单额" />
               )}
             </Spin>
           </Card>

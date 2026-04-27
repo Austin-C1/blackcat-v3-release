@@ -6,6 +6,7 @@ import com.wrbug.polymarketbot.dto.MarketBettingHolder
 import com.wrbug.polymarketbot.dto.MarketBettingMarketDetail
 import com.wrbug.polymarketbot.dto.MarketBettingOutcomeDetail
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -84,9 +85,8 @@ class MarketBettingQueryFormatterTest {
         assertTrue(formatted.contains("Wild 45%"))
         assertTrue(formatted.contains("已成交 shares: 530.5"))
         assertTrue(formatted.contains("挂单: 买 1,200 USDC / 卖 900 USDC"))
-        assertTrue(formatted.contains("Top 5 shares"))
-        assertTrue(formatted.contains("alpha 320.5 shares"))
-        assertTrue(formatted.contains("https://polymarket.com/profile/0xaaa"))
+        assertFalse(formatted.contains("Top 5 shares"))
+        assertFalse(formatted.contains("https://polymarket.com/profile/0xaaa"))
     }
 
     @Test
@@ -94,6 +94,7 @@ class MarketBettingQueryFormatterTest {
         assertEquals("Wild vs Stars", MarketBettingTelegramCommandParser.parse("/盘口 Wild vs Stars")?.query)
         assertEquals("Trump", MarketBettingTelegramCommandParser.parse("盘口 Trump")?.query)
         assertEquals("World Cup", MarketBettingTelegramCommandParser.parse("/market World Cup")?.query)
-        assertEquals(null, MarketBettingTelegramCommandParser.parse("hello"))
+        assertEquals("Celtics vs 76ers", MarketBettingTelegramCommandParser.parse("Celtics vs 76ers")?.query)
+        assertEquals(null, MarketBettingTelegramCommandParser.parse("/start"))
     }
 }

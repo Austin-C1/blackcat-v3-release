@@ -941,10 +941,10 @@ export const apiService = {
   },
 
   marketBettingQuery: {
-    search: (data: { query: string; limit?: number }) =>
+    search: (data: { query: string; limit?: number; date?: string }) =>
       apiClient.post<ApiResponse<MarketBettingSearchResponse>>('/market-betting-query/search', data),
 
-    detail: (data: { query?: string; slug?: string; marketLimit?: number }) =>
+    detail: (data: { query?: string; slug?: string; marketLimit?: number; date?: string }) =>
       apiClient.post<ApiResponse<MarketBettingEventDetail>>('/market-betting-query/detail', data)
   }
 }

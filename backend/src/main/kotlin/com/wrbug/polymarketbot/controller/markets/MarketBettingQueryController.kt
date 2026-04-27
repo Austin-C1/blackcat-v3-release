@@ -21,7 +21,7 @@ class MarketBettingQueryController(
 
     @PostMapping("/search")
     suspend fun search(@RequestBody request: MarketBettingSearchRequest): ResponseEntity<ApiResponse<MarketBettingSearchResponse>> {
-        return marketBettingQueryService.search(request.query, request.limit ?: 5).fold(
+        return marketBettingQueryService.search(request.query, request.limit ?: 5, request.date).fold(
             onSuccess = { ResponseEntity.ok(ApiResponse.success(it)) },
             onFailure = { error ->
                 logger.warn("盘口投注额搜索失败: {}", error.message)
@@ -35,7 +35,8 @@ class MarketBettingQueryController(
         return marketBettingQueryService.detail(
             query = request.query,
             slug = request.slug,
-            marketLimit = request.marketLimit ?: 30
+            marketLimit = request.marketLimit ?: 30,
+            date = request.date
         ).fold(
             onSuccess = { ResponseEntity.ok(ApiResponse.success(it)) },
             onFailure = { error ->

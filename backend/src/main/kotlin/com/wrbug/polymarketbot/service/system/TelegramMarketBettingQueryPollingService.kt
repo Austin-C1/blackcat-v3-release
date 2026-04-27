@@ -39,18 +39,15 @@ class TelegramMarketBettingQueryPollingService(
                 if (updates.isEmpty()) return@forEach
 
                 val nextOffset = updates.maxOf { it.updateId } + 1
-                val hasOffset = offsets.containsKey(token)
                 offsets[token] = nextOffset
 
-                if (!hasOffset) return@forEach
-
-                updates.forEach { update ->
-                    val command = MarketBettingTelegramCommandParser.parse(update.text) ?: return@forEach
-                    val message = marketBettingQueryService.detail(query = command.query, marketLimit = 20)
+                updates.forEach updateLoop@{ update ->
+                    val command = MarketBettingTelegramCommandParser.parse(update.text) ?: return@updateLoop
+                    val message = marketBettingQueryService.detail(query = command.query, marketLimit = 100, date = command.date)
                         .fold(
                             onSuccess = { MarketBettingQueryFormatter.formatEventDetail(it) },
                             onFailure = {
-                                val search = marketBettingQueryService.search(command.query, 5)
+                                val search = marketBettingQueryService.search(command.query, 5, command.date)
                                 search.fold(
                                     onSuccess = { result -> MarketBettingQueryFormatter.formatSearch(result) },
                                     onFailure = { error -> "查询失败：${error.message ?: "未找到相关盘口"}" }

@@ -18,7 +18,9 @@ class MarketBettingTradeAggregatorTest {
         val summary = MarketBettingTradeAggregator.summarizeByAsset(trades)
 
         assertEquals("150.5", summary["token-a"]?.tradedShares)
+        assertEquals("40.15", summary["token-a"]?.tradedAmount)
         assertEquals("20.25", summary["token-b"]?.tradedShares)
+        assertEquals("14.175", summary["token-b"]?.tradedAmount)
     }
 
     private fun trade(asset: String, size: Double?, price: Double): UserActivityResponse =
