@@ -241,7 +241,7 @@ class RetrofitFactory(
     private fun validateRpcAvailability(rpcUrl: String) {
         try {
             val httpUrl = rpcUrl.toHttpUrlOrNull()
-                ?: throw IllegalArgumentException("閺冪姵鏅ラ惃?RPC URL: $rpcUrl")
+                ?: throw IllegalArgumentException("无效的 RPC URL: $rpcUrl")
             val jsonRpcRequest = """
                 {
                     "jsonrpc": "2.0",
@@ -374,7 +374,7 @@ class RpcUrlReplaceInterceptor(
         val originalUrlString = originalUrl.toString()
         val newUrlString = originalUrlString.replace(fixedBaseUrl, actualRpcUrl)
         val newUrl = newUrlString.toHttpUrlOrNull()
-            ?: throw IllegalArgumentException("閺冪姵鏅ラ惃?RPC URL: $newUrlString")
+            ?: throw IllegalArgumentException("无效的 RPC URL: $newUrlString")
         
         val newRequest = originalRequest.newBuilder()
             .url(newUrl)

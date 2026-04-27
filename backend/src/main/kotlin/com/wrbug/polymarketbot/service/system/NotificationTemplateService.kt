@@ -170,136 +170,136 @@ class NotificationTemplateService(
 
         val DEFAULT_TEMPLATES = mapOf(
             "ORDER_SUCCESS" to """
-🎉 <b>订单创建成功</b>
+<b>订单创建成功</b>
 
-📊 <b>订单信息</b>
-• 订单ID: <code>{{order_id}}</code>
-• 市场: <a href="{{market_link}}">{{market_title}}</a>
-• 市场方向: <b>{{outcome}}</b>
-• 方向: <b>{{side}}</b>
-• 价格: <code>{{price}}</code>
-• 数量: <code>{{quantity}}</code> shares
-• 金额: <code>{{amount}}</code> USDC
-• 账户: {{account_name}}
-• 可用余额: <code>{{available_balance}}</code> USDC
+<b>订单信息</b>
+- 订单ID: <code>{{order_id}}</code>
+- 市场: <a href="{{market_link}}">{{market_title}}</a>
+- 选择项: <b>{{outcome}}</b>
+- 方向: <b>{{side}}</b>
+- 价格: <code>{{price}}</code>
+- 数量: <code>{{quantity}}</code> shares
+- 金额: <code>{{amount}}</code> USDC
+- 账号: {{account_name}}
+- 可用余额: <code>{{available_balance}}</code> USDC
 
-🕒 时间: <code>{{time}}</code>
+时间: <code>{{time}}</code>
             """.trimIndent(),
             "ORDER_FAILED" to """
-❌ <b>订单创建失败</b>
+<b>订单创建失败</b>
 
-📊 <b>订单信息</b>
-• 市场: <a href="{{market_link}}">{{market_title}}</a>
-• 市场方向: <b>{{outcome}}</b>
-• 方向: <b>{{side}}</b>
-• 价格: <code>{{price}}</code>
-• 数量: <code>{{quantity}}</code> shares
-• 金额: <code>{{amount}}</code> USDC
-• 账户: {{account_name}}
+<b>订单信息</b>
+- 市场: <a href="{{market_link}}">{{market_title}}</a>
+- 选择项: <b>{{outcome}}</b>
+- 方向: <b>{{side}}</b>
+- 价格: <code>{{price}}</code>
+- 数量: <code>{{quantity}}</code> shares
+- 金额: <code>{{amount}}</code> USDC
+- 账号: {{account_name}}
 
-⚠️ <b>错误信息</b>
+<b>失败原因</b>
 <code>{{error_message}}</code>
 
-🕒 时间: <code>{{time}}</code>
+时间: <code>{{time}}</code>
             """.trimIndent(),
             "ORDER_FILTERED" to """
-🚫 <b>订单已过滤</b>
+<b>订单已过滤</b>
 
-📊 <b>订单信息</b>
-• 市场: <a href="{{market_link}}">{{market_title}}</a>
-• 市场方向: <b>{{outcome}}</b>
-• 方向: <b>{{side}}</b>
-• 价格: <code>{{price}}</code>
-• 数量: <code>{{quantity}}</code> shares
-• 金额: <code>{{amount}}</code> USDC
-• 账户: {{account_name}}
+<b>订单信息</b>
+- 市场: <a href="{{market_link}}">{{market_title}}</a>
+- 选择项: <b>{{outcome}}</b>
+- 方向: <b>{{side}}</b>
+- 价格: <code>{{price}}</code>
+- 数量: <code>{{quantity}}</code> shares
+- 金额: <code>{{amount}}</code> USDC
+- 账号: {{account_name}}
 
-⚠️ <b>过滤类型</b> <code>{{filter_type}}</code>
+<b>过滤类型</b> <code>{{filter_type}}</code>
 
-📌 <b>过滤原因</b>
+<b>过滤原因</b>
 <code>{{filter_reason}}</code>
 
-🕒 时间: <code>{{time}}</code>
+时间: <code>{{time}}</code>
             """.trimIndent(),
             "REDEEM_SUCCESS" to """
-💵 <b>仓位赎回成功</b>
+<b>资金赎回成功</b>
 
-📊 <b>赎回信息</b>
-• 账户: {{account_name}}
-• 交易哈希: <code>{{transaction_hash}}</code>
-• 赎回总价值: <code>{{total_value}}</code> USDC
-• 可用余额: <code>{{available_balance}}</code> USDC
+<b>账户信息</b>
+- 账号: {{account_name}}
+- 交易哈希: <code>{{transaction_hash}}</code>
+- 赎回总额: <code>{{total_value}}</code> USDC
+- 可用余额: <code>{{available_balance}}</code> USDC
 
-🕒 时间: <code>{{time}}</code>
+时间: <code>{{time}}</code>
             """.trimIndent(),
             "REDEEM_NO_RETURN" to """
-📋 <b>仓位已结算（无收益）</b>
+<b>资金赎回未返回金额</b>
 
-📊 <b>结算信息</b>
-<i>市场已结算，您的预测未命中，赎回价值为 0。</i>
+<b>账户信息</b>
+<i>链上交易已提交，但本次未检测到可入账金额，赎回金额按 0 处理。</i>
 
-• 账户: {{account_name}}
-• 交易哈希: <code>{{transaction_hash}}</code>
-• 可用余额: <code>{{available_balance}}</code> USDC
+- 账号: {{account_name}}
+- 交易哈希: <code>{{transaction_hash}}</code>
+- 可用余额: <code>{{available_balance}}</code> USDC
 
-🕒 时间: <code>{{time}}</code>
+时间: <code>{{time}}</code>
             """.trimIndent(),
             "MONITOR_PUSH" to """
-👀 <b>监控推送</b>
+<b>监控提醒</b>
 
-🎯 <b>市场</b>
+<b>市场</b>
 <a href="{{market_link}}">{{market_title}}</a>
 
-🧑 <b>监控账号</b>
+<b>Leader</b>
 {{leader_name}}
 
-📌 <b>本次动作</b>
-• 动作: <b>{{side}}</b>
-• 方向: <b>{{outcome}}</b>
-• 价格: <code>{{price}}</code>
-• 数量: <code>{{quantity}}</code>
-• 金额: <code>{{amount}}</code> USDC
+<b>交易信息</b>
+- 方向: <b>{{side}}</b>
+- 选择项: <b>{{outcome}}</b>
+- 价格: <code>{{price}}</code>
+- 数量: <code>{{quantity}}</code>
+- 金额: <code>{{amount}}</code> USDC
 
-📦 <b>当前持仓</b>
+<b>当前仓位</b>
 <code>{{current_position_summary}}</code>
 
-🕒 <b>时间</b>
+<b>时间</b>
 <code>{{time}}</code>
             """.trimIndent(),
             "MONITOR_SAME_SIDE" to """
-📡 <b>同向提醒</b>
+<b>同向提醒</b>
 
-🎯 <b>市场</b>
+<b>市场</b>
 <a href="{{market_link}}">{{market_title}}</a>
 
-📈 <b>同向方向</b>
+<b>选择项</b>
 <b>{{outcome}}</b>
 
-👥 <b>同向账号持仓</b>
+<b>同向仓位</b>
 {{same_side_position_report}}
 
-📊 <b>汇总</b>
-• 同向人数: <code>{{same_side_count}}</code>
+<b>统计</b>
+- 同向人数: <code>{{same_side_count}}</code>
 
-🕒 <b>时间</b>
+<b>时间</b>
 <code>{{time}}</code>
             """.trimIndent(),
             "MONITOR_OPPOSITE_SIDE" to """
-⚔️ <b>反向提醒</b>
+<b>反向提醒</b>
 
-🎯 <b>市场</b>
+<b>市场</b>
 <a href="{{market_link}}">{{market_title}}</a>
 
-↔️ <b>{{outcome_a}}</b>
+<b>{{outcome_a}}</b>
 {{side_a_position_report}}
 
-↔️ <b>{{outcome_b}}</b>
+<b>{{outcome_b}}</b>
 {{side_b_position_report}}
 
-🧩 <b>对冲账号</b>
+<b>对冲情况</b>
 {{hedge_position_report}}
 
-🕒 <b>时间</b>
+<b>时间</b>
 <code>{{time}}</code>
             """.trimIndent()
         )
