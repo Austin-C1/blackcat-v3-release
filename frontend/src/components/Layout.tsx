@@ -104,11 +104,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           icon: <UserOutlined />,
           label: t('menu.leaders') || 'Leader 管理',
         },
-        {
-          key: '/copy-trading-settings',
-          icon: <SettingOutlined />,
-          label: '跟单设置',
-        },
       ],
     },
     {

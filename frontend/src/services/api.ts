@@ -482,27 +482,6 @@ export const apiService = {
     }) => 
       apiClient.post<ApiResponse<import('../types').FilteredOrderListResponse>>('/copy-trading/configs/filtered-orders', data),
 
-    followSettingsDetail: (data: { copyTradingId: number }) =>
-      apiClient.post<ApiResponse<import('../types').FollowSettingsResponse>>('/copy-trading/configs/follow-settings/detail', data),
-
-    followSettingsSave: (data: {
-      copyTradingId: number
-      enabled: boolean
-      rules: import('../types').FollowSettingsSaveItem[]
-    }) =>
-      apiClient.post<ApiResponse<import('../types').FollowSettingsResponse>>('/copy-trading/configs/follow-settings/save', data),
-
-    leaderGroupControls: (data: { leaderIds?: number[] } = {}) =>
-      apiClient.post<ApiResponse<{ list: import('../types').LeaderGroupControl[] }>>('/copy-trading/configs/group-controls/list', data),
-
-    updateLeaderGroupControl: (data: import('../types').LeaderGroupControlUpdateRequest) =>
-      apiClient.post<ApiResponse<import('../types').LeaderGroupControl>>('/copy-trading/configs/group-controls/update', data),
-
-    restartLeaderGroup: (data: { leaderId: number }) =>
-      apiClient.post<ApiResponse<import('../types').LeaderGroupControl>>('/copy-trading/configs/group-controls/restart', data),
-
-    closeLeaderGroup: (data: { leaderId: number }) =>
-      apiClient.post<ApiResponse<import('../types').LeaderGroupControl>>('/copy-trading/configs/group-controls/close', data)
   },
 
   /**

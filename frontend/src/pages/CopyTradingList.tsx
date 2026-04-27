@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import {
-  Alert,
   Button,
   Card,
   Empty,
-  InputNumber,
   Popconfirm,
   Select,
   Space,
@@ -20,18 +18,14 @@ import {
   DeleteOutlined,
   DownOutlined,
   EditOutlined,
-  PauseCircleOutlined,
-  PlayCircleOutlined,
   PlusOutlined,
-  SaveOutlined,
-  SettingOutlined,
   UnorderedListOutlined,
   UpOutlined,
 } from '@ant-design/icons'
 import { useMediaQuery } from 'react-responsive'
 import { apiService } from '../services/api'
 import { useAccountStore } from '../store/accountStore'
-import type { Account, CopyTrading, CopyTradingStatistics, Leader, LeaderGroupControl } from '../types'
+import type { Account, CopyTrading, CopyTradingStatistics, Leader } from '../types'
 import { formatUSDC } from '../utils'
 import { loadCopyTradingStatisticsMap } from '../utils/copyTradingStatistics'
 import CopyTradingOrdersModal from './CopyTradingOrders/index'
@@ -60,18 +54,6 @@ type AccountBucket = {
   leaders: LeaderBucket[]
 }
 
-const getLeaderStatusColor = (status?: string) => {
-  if (status === 'AUTO_PAUSED') return 'red'
-  if (status === 'MANUAL_PAUSED') return 'orange'
-  return 'green'
-}
-
-const getLeaderStatusLabel = (status?: string) => {
-  if (status === 'AUTO_PAUSED') return '自动暂停'
-  if (status === 'MANUAL_PAUSED') return '手动关闭'
-  return '运行中'
-}
-
 const getLeaderGroupLabel = (leader?: Leader) => {
   return leader?.customGroup?.trim() || '未分组'
 }
@@ -88,7 +70,6 @@ const sortGroupLabel = (left: string, right: string) => {
 }
 
 const CopyTradingList: React.FC = () => {
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const isMobile = useMediaQuery({ maxWidth: 768 })
   const { accounts, fetchAccounts } = useAccountStore()
@@ -96,13 +77,8 @@ const CopyTradingList: React.FC = () => {
   const [copyTradings, setCopyTradings] = useState<CopyTrading[]>([])
   const [leaders, setLeaders] = useState<Leader[]>([])
   const [statisticsMap, setStatisticsMap] = useState<Record<number, CopyTradingStatistics>>({})
-  const [leaderControls, setLeaderControls] = useState<Record<number, LeaderGroupControl>>({})
-  const [leaderControlDrafts, setLeaderControlDrafts] = useState<Record<number, LeaderGroupControl>>({})
   const [collapsedAccountIds, setCollapsedAccountIds] = useState<Record<number, boolean>>({})
-  const [collapsedLeaderKeys, setCollapsedLeaderKeys] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(false)
-  const [savingLeaderId, setSavingLeaderId] = useState<number | null>(null)
-  const [actingLeaderId, setActingLeaderId] = useState<number | null>(null)
   const [filters, setFilters] = useState<Filters>(() => {
     const leaderIdParam = Number(searchParams.get('leaderId'))
     const accountIdParam = Number(searchParams.get('accountId'))
@@ -152,31 +128,6 @@ const CopyTradingList: React.FC = () => {
     setStatisticsMap(nextMap)
   }
 
-  const fetchLeaderControls = async (list: CopyTrading[]) => {
-    const leaderIds = Array.from(new Set(list.map((item) => item.leaderId)))
-    if (leaderIds.length === 0) {
-      setLeaderControls({})
-      setLeaderControlDrafts({})
-      return
-    }
-
-    try {
-      const response = await apiService.copyTrading.leaderGroupControls({ leaderIds })
-      if (response.data.code !== 0 || !response.data.data) {
-        return
-      }
-
-      const nextMap: Record<number, LeaderGroupControl> = {}
-      response.data.data.list.forEach((item) => {
-        nextMap[item.leaderId] = item
-      })
-      setLeaderControls(nextMap)
-      setLeaderControlDrafts(nextMap)
-    } catch {
-      // 风控数据失败时不阻断主页面
-    }
-  }
-
   const fetchCopyTradings = async () => {
     setLoading(true)
     try {
@@ -193,7 +144,7 @@ const CopyTradingList: React.FC = () => {
 
       const list = response.data.data.list || []
       setCopyTradings(list)
-      await Promise.all([fetchStatistics(list), fetchLeaderControls(list)])
+      await fetchStatistics(list)
     } catch (error: any) {
       message.error(error.message || '获取跟单列表失败')
     } finally {
@@ -248,78 +199,6 @@ const CopyTradingList: React.FC = () => {
     return Array.from(groupedByAccount.values()).sort((left, right) => left.accountName.localeCompare(right.accountName))
   }, [accountById, leaderById, visibleCopyTradings])
 
-  const handleLeaderDraftChange = (leaderId: number, patch: Partial<LeaderGroupControl>) => {
-    setLeaderControlDrafts((current) => ({
-      ...current,
-      [leaderId]: {
-        ...(current[leaderId] || leaderControls[leaderId]),
-        ...patch,
-      },
-    }))
-  }
-
-  const handleSaveLeaderControl = async (leaderId: number) => {
-    const draft = leaderControlDrafts[leaderId]
-    if (!draft) {
-      return
-    }
-
-    const drawdownThreshold = Number(draft.drawdownThresholdPercent)
-    if (Number.isNaN(drawdownThreshold) || drawdownThreshold <= 0 || drawdownThreshold > 100) {
-      message.error('7天回撤阈值必须在 0 到 100 之间')
-      return
-    }
-
-    const price = Number(draft.profitTakePrice)
-    if (Number.isNaN(price) || price <= 0 || price > 1) {
-      message.error('卖出价格上限必须在 0 到 1 之间')
-      return
-    }
-
-    setSavingLeaderId(leaderId)
-    try {
-      const response = await apiService.copyTrading.updateLeaderGroupControl({
-        leaderId,
-        autoPauseEnabled: draft.autoPauseEnabled,
-        profitTakeEnabled: draft.profitTakeEnabled,
-        profitTakePrice: String(draft.profitTakePrice),
-        drawdownThresholdPercent: String(draft.drawdownThresholdPercent),
-      })
-
-      if (response.data.code === 0 && response.data.data) {
-        setLeaderControls((current) => ({ ...current, [leaderId]: response.data.data! }))
-        setLeaderControlDrafts((current) => ({ ...current, [leaderId]: response.data.data! }))
-        message.success('Leader 风控已保存')
-      } else {
-        message.error(response.data.msg || '保存 Leader 风控失败')
-      }
-    } catch (error: any) {
-      message.error(error.message || '保存 Leader 风控失败')
-    } finally {
-      setSavingLeaderId(null)
-    }
-  }
-
-  const handleLeaderAction = async (leaderId: number, action: 'restart' | 'close') => {
-    setActingLeaderId(leaderId)
-    try {
-      const response = action === 'restart'
-        ? await apiService.copyTrading.restartLeaderGroup({ leaderId })
-        : await apiService.copyTrading.closeLeaderGroup({ leaderId })
-
-      if (response.data.code === 0) {
-        message.success(action === 'restart' ? '已重启这个 Leader 下的全部跟单' : '已关闭这个 Leader 下的全部跟单')
-        await fetchCopyTradings()
-      } else {
-        message.error(response.data.msg || '操作失败')
-      }
-    } catch (error: any) {
-      message.error(error.message || '操作失败')
-    } finally {
-      setActingLeaderId(null)
-    }
-  }
-
   const handleToggleStatus = async (copyTrading: CopyTrading) => {
     try {
       const response = await apiService.copyTrading.updateStatus({
@@ -356,14 +235,6 @@ const CopyTradingList: React.FC = () => {
     setCollapsedAccountIds((current) => ({
       ...current,
       [accountId]: !current[accountId],
-    }))
-  }
-
-  const toggleLeaderCollapsed = (accountId: number, leaderId: number) => {
-    const key = `${accountId}-${leaderId}`
-    setCollapsedLeaderKeys((current) => ({
-      ...current,
-      [key]: !current[key],
     }))
   }
 
@@ -469,20 +340,11 @@ const CopyTradingList: React.FC = () => {
       ) : (
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           {accountGroups.map((accountGroup) => {
-            const totalRules = accountGroup.leaders.reduce((sum, leaderBucket) => (
-              sum + leaderBucket.items.reduce((inner, item) => inner + (item.followRules?.length || 0), 0)
-            ), 0)
             const enabledCount = accountGroup.leaders.reduce((sum, leaderBucket) => (
               sum + leaderBucket.items.filter((item) => item.enabled).length
             ), 0)
             const totalPnl = accountGroup.leaders.reduce((sum, leaderBucket) => (
               sum + leaderBucket.items.reduce((inner, item) => inner + getConfigPnl(item.id), 0)
-            ), 0)
-            const weeklyPnl = accountGroup.leaders.reduce((sum, leaderBucket) => (
-              sum + getNumberValue(leaderControls[leaderBucket.leaderId]?.currentPnl)
-            ), 0)
-            const weeklyPeak = accountGroup.leaders.reduce((sum, leaderBucket) => (
-              sum + getNumberValue(leaderControls[leaderBucket.leaderId]?.lastPeakPnl)
             ), 0)
             const accountTags = Array.from(new Set(accountGroup.leaders.map((leaderBucket) => getLeaderGroupLabel(leaderBucket.leader)))).sort(sortGroupLabel)
             const isCollapsed = collapsedAccountIds[accountGroup.accountId] === true
@@ -530,7 +392,7 @@ const CopyTradingList: React.FC = () => {
                     <div
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, minmax(0, 1fr))',
+                        gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(2, minmax(0, 1fr))',
                         gap: 12,
                         marginTop: 16,
                       }}
@@ -543,33 +405,15 @@ const CopyTradingList: React.FC = () => {
                         </div>
                       </Card>
                       <Card size="small">
-                        <div style={{ fontSize: 12, color: '#666' }}>七日收益</div>
-                        <div style={{ fontSize: 22, fontWeight: 700, color: weeklyPnl >= 0 ? '#3f8600' : '#cf1322' }}>
-                          {weeklyPnl >= 0 ? '+' : ''}
-                          {formatUSDC(weeklyPnl.toString())} USDC
-                        </div>
-                      </Card>
-                      <Card size="small">
-                        <div style={{ fontSize: 12, color: '#666' }}>7天最高点</div>
-                        <div style={{ fontSize: 22, fontWeight: 700 }}>{formatUSDC(weeklyPeak.toString())} USDC</div>
-                      </Card>
-                      <Card size="small">
-                        <div style={{ fontSize: 12, color: '#666' }}>运行中 / 规则数</div>
+                        <div style={{ fontSize: 12, color: '#666' }}>运行中</div>
                         <div style={{ fontSize: 22, fontWeight: 700 }}>{enabledCount}/{accountGroup.leaders.length}</div>
-                        <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>共 {totalRules} 条规则</div>
                       </Card>
                     </div>
 
                     <Space direction="vertical" size={12} style={{ width: '100%', marginTop: 16 }}>
                       {accountGroup.leaders.map((leaderBucket) => {
-                        const control = leaderControls[leaderBucket.leaderId]
-                        const draft = leaderControlDrafts[leaderBucket.leaderId]
-                        const currentPnl = getNumberValue(control?.currentPnl)
-                        const peakPnl = getNumberValue(control?.lastPeakPnl)
-                        const ruleCount = leaderBucket.items.reduce((sum, item) => sum + (item.followRules?.length || 0), 0)
                         const enabledRelations = leaderBucket.items.filter((item) => item.enabled).length
                         const leaderCollapsedKey = `${accountGroup.accountId}-${leaderBucket.leaderId}`
-                        const isLeaderCollapsed = collapsedLeaderKeys[leaderCollapsedKey] === true
 
                         return (
                           <Card key={leaderCollapsedKey} size="small">
@@ -583,24 +427,11 @@ const CopyTradingList: React.FC = () => {
                                 </div>
                                 <Space wrap>
                                   <Tag>{getLeaderGroupLabel(leaderBucket.leader)}</Tag>
-                                  <Tag color={getLeaderStatusColor(control?.status)}>{getLeaderStatusLabel(control?.status)}</Tag>
                                   <Tag color="blue">已绑定 {enabledRelations}/{leaderBucket.items.length}</Tag>
-                                  <Tag>规则 {ruleCount} 条</Tag>
-                                  <Tag color={currentPnl >= 0 ? 'green' : 'red'}>
-                                    七日收益 {currentPnl >= 0 ? '+' : ''}
-                                    {formatUSDC(currentPnl.toString())} USDC
-                                  </Tag>
-                                  <Tag color="gold">7天最高点 {formatUSDC(peakPnl.toString())} USDC</Tag>
                                 </Space>
                               </div>
 
                               <Space wrap>
-                                <Button
-                                  icon={isLeaderCollapsed ? <DownOutlined /> : <UpOutlined />}
-                                  onClick={() => toggleLeaderCollapsed(accountGroup.accountId, leaderBucket.leaderId)}
-                                >
-                                  {isLeaderCollapsed ? '展开风控' : '收起风控'}
-                                </Button>
                                 <Button
                                   icon={<PlusOutlined />}
                                   onClick={() => {
@@ -613,129 +444,6 @@ const CopyTradingList: React.FC = () => {
                                 </Button>
                               </Space>
                             </div>
-
-                            {!isLeaderCollapsed && draft && (
-                              <Card size="small" style={{ marginTop: 16, background: '#fafafa' }}>
-                                <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                                    <Space wrap>
-                                      <Tag color={getLeaderStatusColor(draft.status)}>{getLeaderStatusLabel(draft.status)}</Tag>
-                                      <span style={{ fontSize: 13, color: '#666' }}>
-                                        7天内从最高点回撤 {draft.drawdownThresholdPercent}% 会自动暂停整组跟单
-                                      </span>
-                                    </Space>
-                                    <Space wrap>
-                                      <Button
-                                        icon={<SaveOutlined />}
-                                        type="primary"
-                                        loading={savingLeaderId === leaderBucket.leaderId}
-                                        onClick={() => handleSaveLeaderControl(leaderBucket.leaderId)}
-                                      >
-                                        保存
-                                      </Button>
-                                      <Button
-                                        icon={<PlayCircleOutlined />}
-                                        loading={actingLeaderId === leaderBucket.leaderId}
-                                        onClick={() => handleLeaderAction(leaderBucket.leaderId, 'restart')}
-                                      >
-                                        一键重启
-                                      </Button>
-                                      <Button
-                                        danger
-                                        icon={<PauseCircleOutlined />}
-                                        loading={actingLeaderId === leaderBucket.leaderId}
-                                        onClick={() => handleLeaderAction(leaderBucket.leaderId, 'close')}
-                                      >
-                                        一键关闭
-                                      </Button>
-                                    </Space>
-                                  </div>
-
-                                  {draft.pausedReason && draft.status !== 'ACTIVE' && (
-                                    <Alert type="warning" showIcon message={draft.pausedReason} />
-                                  )}
-
-                                  <div
-                                    style={{
-                                      display: 'grid',
-                                      gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1.2fr 1fr 1fr 1fr 1fr',
-                                      gap: 12,
-                                      alignItems: 'stretch',
-                                    }}
-                                  >
-                                    <Card size="small">
-                                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-                                        <div>
-                                          <div style={{ fontSize: 13, fontWeight: 600 }}>自动暂停</div>
-                                          <div style={{ fontSize: 12, color: '#666' }}>达到回撤阈值后自动暂停这个 Leader 下的全部跟单</div>
-                                        </div>
-                                        <Switch
-                                          checked={draft.autoPauseEnabled}
-                                          onChange={(checked) => handleLeaderDraftChange(leaderBucket.leaderId, { autoPauseEnabled: checked })}
-                                        />
-                                      </div>
-                                    </Card>
-
-                                    <Card size="small">
-                                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>7天回撤阈值</div>
-                                      <InputNumber
-                                        stringMode
-                                        min="0.01"
-                                        max="100"
-                                        step="0.5"
-                                        precision={2}
-                                        style={{ width: '100%' }}
-                                        value={draft.drawdownThresholdPercent}
-                                        onChange={(value) => handleLeaderDraftChange(leaderBucket.leaderId, { drawdownThresholdPercent: String(value || '') })}
-                                        suffix="%"
-                                      />
-                                    </Card>
-
-                                    <Card size="small">
-                                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-                                        <div>
-                                          <div style={{ fontSize: 13, fontWeight: 600 }}>盈利上限卖出</div>
-                                          <div style={{ fontSize: 12, color: '#666' }}>达到设置价格时也会自动卖出</div>
-                                        </div>
-                                        <Switch
-                                          checked={draft.profitTakeEnabled}
-                                          onChange={(checked) => handleLeaderDraftChange(leaderBucket.leaderId, { profitTakeEnabled: checked })}
-                                        />
-                                      </div>
-                                    </Card>
-
-                                    <Card size="small">
-                                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>卖出价格上限</div>
-                                      <InputNumber
-                                        stringMode
-                                        min="0.0001"
-                                        max="1"
-                                        step="0.01"
-                                        precision={4}
-                                        style={{ width: '100%' }}
-                                        value={draft.profitTakePrice}
-                                        onChange={(value) => handleLeaderDraftChange(leaderBucket.leaderId, { profitTakePrice: String(value || '') })}
-                                        suffix="USDC/份"
-                                      />
-                                    </Card>
-
-                                    <Card size="small">
-                                      <div style={{ fontSize: 12, color: '#666' }}>7天最高点</div>
-                                      <div style={{ fontSize: 20, fontWeight: 700 }}>{formatUSDC(draft.lastPeakPnl)} USDC</div>
-                                    </Card>
-
-                                    <Card size="small">
-                                      <div style={{ fontSize: 12, color: '#666' }}>七日收益 / 回撤</div>
-                                      <div style={{ fontSize: 20, fontWeight: 700, color: Number(draft.currentPnl) >= 0 ? '#3f8600' : '#cf1322' }}>
-                                        {Number(draft.currentPnl) >= 0 ? '+' : ''}
-                                        {formatUSDC(draft.currentPnl)} USDC
-                                      </div>
-                                      <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{draft.currentDrawdownPercent}%</div>
-                                    </Card>
-                                  </div>
-                                </Space>
-                              </Card>
-                            )}
 
                             <Space direction="vertical" size={12} style={{ width: '100%', marginTop: 16 }}>
                               {leaderBucket.items.map((item) => {
@@ -750,14 +458,6 @@ const CopyTradingList: React.FC = () => {
                                           {item.configName || `配置 ${item.id}`}
                                         </div>
                                         <Space wrap style={{ marginBottom: 8 }}>
-                                          <Tag color={item.followRules && item.followRules.length > 0 ? 'blue' : 'default'}>
-                                            {item.followRules && item.followRules.length > 0
-                                              ? `已配 ${item.followRules.length} 条规则`
-                                              : '未设置规则'}
-                                          </Tag>
-                                          <Tag color={item.followSettingsEnabled ? 'green' : 'default'}>
-                                            {item.followSettingsEnabled ? '规则已启用' : '规则已关闭'}
-                                          </Tag>
                                           <Tag color={item.supportSell ? 'orange' : 'default'}>
                                             {item.supportSell ? '支持跟随卖出' : '仅跟买入'}
                                           </Tag>
@@ -784,12 +484,6 @@ const CopyTradingList: React.FC = () => {
                                         </div>
 
                                         <Space wrap>
-                                          <Tooltip title="跟单设置">
-                                            <Button
-                                              icon={<SettingOutlined />}
-                                              onClick={() => navigate(`/copy-trading-settings?copyTradingId=${item.id}`)}
-                                            />
-                                          </Tooltip>
                                           <Tooltip title="统计">
                                             <Button
                                               icon={<BarChartOutlined />}

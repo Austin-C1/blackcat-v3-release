@@ -4,7 +4,6 @@ import com.wrbug.polymarketbot.api.PolymarketClobApi
 import com.wrbug.polymarketbot.entity.*
 import com.wrbug.polymarketbot.repository.*
 import com.wrbug.polymarketbot.service.common.MarketService
-import com.wrbug.polymarketbot.service.copytrading.configs.LeaderGroupControlService
 import com.wrbug.polymarketbot.service.system.TelegramNotificationService
 import com.wrbug.polymarketbot.util.RetrofitFactory
 import com.wrbug.polymarketbot.util.CryptoUtils
@@ -38,8 +37,7 @@ class OrderStatusUpdateService(
     private val trackingService: CopyOrderTrackingService,
     private val marketService: MarketService,
     private val telegramNotificationService: TelegramNotificationService?,
-    private val blockchainService: com.wrbug.polymarketbot.service.common.BlockchainService,
-    private val leaderGroupControlService: LeaderGroupControlService
+    private val blockchainService: com.wrbug.polymarketbot.service.common.BlockchainService
 ) : ApplicationContextAware {
 
     private val logger = LoggerFactory.getLogger(OrderStatusUpdateService::class.java)
@@ -302,8 +300,6 @@ class OrderStatusUpdateService(
 
             logger.debug("Found ${pendingRecords.size} sell records waiting for settlement refresh")
 
-            val leadersToRefresh = mutableSetOf<Long>()
-
             for (record in pendingRecords) {
                 try {
                     val copyTrading = copyTradingRepository.findById(record.copyTradingId).orElse(null)
@@ -369,7 +365,6 @@ class OrderStatusUpdateService(
                             createdAt = record.createdAt
                         )
                         sellMatchRecordRepository.save(updatedRecord)
-                        leadersToRefresh.add(copyTrading.leaderId)
                         continue
                     }
                     val isAutoOrder = record.sellOrderId.startsWith("AUTO_", ignoreCase = true) ||
@@ -393,7 +388,6 @@ class OrderStatusUpdateService(
                             createdAt = record.createdAt
                         )
                         sellMatchRecordRepository.save(updatedRecord)
-                        leadersToRefresh.add(copyTrading.leaderId)
                         continue
                     }
                     val actualSellPrice = trackingService.getActualExecutionPrice(
@@ -438,7 +432,6 @@ class OrderStatusUpdateService(
                             createdAt = record.createdAt
                         )
                         sellMatchRecordRepository.save(updatedRecord)
-                        leadersToRefresh.add(copyTrading.leaderId)
 
                         logger.info("Updated sell order price before notification: orderId=${record.sellOrderId}, previousPrice=${record.sellPrice}, actualPrice=$actualSellPrice")
                         sendSellOrderNotification(
@@ -471,8 +464,6 @@ class OrderStatusUpdateService(
                             createdAt = record.createdAt
                         )
                         sellMatchRecordRepository.save(updatedRecord)
-                        leadersToRefresh.add(copyTrading.leaderId)
-
                         logger.debug("Sell order price already matches actual execution price: orderId=${record.sellOrderId}, price=$actualSellPrice")
                         sendSellOrderNotification(
                             record = updatedRecord,
@@ -491,16 +482,6 @@ class OrderStatusUpdateService(
                     }
                 } catch (e: Exception) {
                     logger.warn("Failed to update sell order before notification: orderId=${record.sellOrderId}, error=${e.message}", e)
-                }
-            }
-            leadersToRefresh.forEach { leaderId ->
-                try {
-                    leaderGroupControlService.evaluateAutoPause(leaderId)
-                } catch (e: Exception) {
-                    logger.warn(
-                        "Evaluate leader drawdown after settlement failed: leaderId=$leaderId, error=${e.message}",
-                        e
-                    )
                 }
             }
         } catch (e: Exception) {

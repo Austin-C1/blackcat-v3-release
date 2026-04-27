@@ -34,7 +34,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { useMediaQuery } from 'react-responsive'
 import { apiService } from '../services/api'
-import type { Leader, LeaderBalanceResponse, LeaderGroupControl, PositionDto } from '../types'
+import type { Leader, LeaderBalanceResponse, PositionDto } from '../types'
 import { formatUSDC } from '../utils'
 import { loadCopyTradingStatisticsMap } from '../utils/copyTradingStatistics'
 
@@ -48,7 +48,6 @@ type LeaderBalanceSummary = {
 }
 
 type LeaderPerformanceSummary = {
-  currentPnl: string
   totalPnl: string
 }
 
@@ -65,7 +64,6 @@ const EMPTY_BALANCE_SUMMARY: LeaderBalanceSummary = {
 }
 
 const EMPTY_PERFORMANCE_SUMMARY: LeaderPerformanceSummary = {
-  currentPnl: '0',
   totalPnl: '0',
 }
 
@@ -137,27 +135,13 @@ const LeaderList: React.FC = () => {
       return {}
     }
 
-    const [copyTradingResult, leaderControlsResult] = await Promise.allSettled([
-      apiService.copyTrading.list({}),
-      apiService.copyTrading.leaderGroupControls({ leaderIds: uniqueLeaderIds }),
-    ])
+    const copyTradingResult = await apiService.copyTrading.list({})
 
-    const copyTradings = copyTradingResult.status === 'fulfilled'
-      && copyTradingResult.value.data.code === 0
-      && copyTradingResult.value.data.data
-      ? copyTradingResult.value.data.data.list.filter((item) => uniqueLeaderIds.includes(item.leaderId))
+    const copyTradings = copyTradingResult.data.code === 0 && copyTradingResult.data.data
+      ? copyTradingResult.data.data.list.filter((item) => uniqueLeaderIds.includes(item.leaderId))
       : []
 
     const statisticsMap = await loadCopyTradingStatisticsMap(copyTradings)
-
-    const leaderControlsMap: Record<number, LeaderGroupControl> = {}
-    if (leaderControlsResult.status === 'fulfilled'
-      && leaderControlsResult.value.data.code === 0
-      && leaderControlsResult.value.data.data) {
-      leaderControlsResult.value.data.data.list.forEach((item) => {
-        leaderControlsMap[item.leaderId] = item
-      })
-    }
 
     const totalPnlByLeader = copyTradings.reduce<Record<number, number>>((acc, item) => {
       const pnl = getNumberValue(statisticsMap[item.id]?.totalPnl)
@@ -168,7 +152,6 @@ const LeaderList: React.FC = () => {
     const next: Record<number, LeaderPerformanceSummary> = {}
     uniqueLeaderIds.forEach((leaderId) => {
       next[leaderId] = {
-        currentPnl: leaderControlsMap[leaderId]?.currentPnl ?? '0',
         totalPnl: (totalPnlByLeader[leaderId] ?? 0).toString(),
       }
     })
@@ -514,12 +497,6 @@ const LeaderList: React.FC = () => {
             balance.position === '-' ? '-' : `${formatUSDC(balance.position)} USDC`,
           )}
           {renderMetricItem(
-            'weeklyPnl',
-            t('leaderList.weeklyPnl', { defaultValue: '7日盈利' }),
-            formatSignedUsdc(performance.currentPnl),
-            getMetricColor(performance.currentPnl),
-          )}
-          {renderMetricItem(
             'totalPnl',
             t('leaderList.totalPnl', { defaultValue: '总盈利' }),
             formatSignedUsdc(performance.totalPnl),
@@ -618,9 +595,6 @@ const LeaderList: React.FC = () => {
             <Tag>{`${t('leaderList.currentPositions', { defaultValue: '仓位' })} ${balance.positionsCount}`}</Tag>
             <Tag>{`${t('leaderDetail.availableBalance', { defaultValue: '现金' })} ${balance.available === '-' ? '-' : `${formatUSDC(balance.available)} USDC`}`}</Tag>
             <Tag>{`${t('leaderDetail.positionBalance', { defaultValue: '持仓总值' })} ${balance.position === '-' ? '-' : `${formatUSDC(balance.position)} USDC`}`}</Tag>
-            <Tag color={getNumberValue(performance.currentPnl) >= 0 ? 'green' : 'red'}>
-              {`${t('leaderList.weeklyPnl', { defaultValue: '7日盈利' })} ${formatSignedUsdc(performance.currentPnl)}`}
-            </Tag>
             <Tag color={getNumberValue(performance.totalPnl) >= 0 ? 'green' : 'red'}>
               {`${t('leaderList.totalPnl', { defaultValue: '总盈利' })} ${formatSignedUsdc(performance.totalPnl)}`}
             </Tag>
@@ -677,9 +651,6 @@ const LeaderList: React.FC = () => {
         </Descriptions.Item>
         <Descriptions.Item label={t('leaderDetail.positionBalance', { defaultValue: '持仓总值' })}>
           {balance.position === '-' ? '-' : `${formatUSDC(balance.position)} USDC`}
-        </Descriptions.Item>
-        <Descriptions.Item label={t('leaderDetail.weeklyPnl', { defaultValue: '7日盈利' })}>
-          <Text style={{ color: getMetricColor(performance.currentPnl) }}>{formatSignedUsdc(performance.currentPnl)}</Text>
         </Descriptions.Item>
         <Descriptions.Item label={t('leaderDetail.totalPnl', { defaultValue: '总盈利' })}>
           <Text style={{ color: getMetricColor(performance.totalPnl) }}>{formatSignedUsdc(performance.totalPnl)}</Text>

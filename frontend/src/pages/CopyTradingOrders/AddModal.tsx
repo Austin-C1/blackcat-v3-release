@@ -126,7 +126,6 @@ const AddModal: React.FC<AddModalProps> = ({ open, onClose, onSuccess, preFilled
         supportSell: values.supportSell !== false,
         pushFailedOrders: values.pushFailedOrders ?? false,
         pushFilteredOrders: values.pushFilteredOrders ?? false,
-        followSettingsEnabled: false,
         enabled: true,
       }
 

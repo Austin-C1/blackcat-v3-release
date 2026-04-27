@@ -21,7 +21,6 @@ import com.wrbug.polymarketbot.service.copytrading.configs.CopyTradingFilterServ
 import com.wrbug.polymarketbot.service.copytrading.configs.FilterStatus
 import com.wrbug.polymarketbot.service.copytrading.configs.FollowAmountRuleInput
 import com.wrbug.polymarketbot.service.copytrading.configs.FollowAmountRuleMatcher
-import com.wrbug.polymarketbot.service.copytrading.configs.LeaderGroupControlService
 import com.wrbug.polymarketbot.service.copytrading.orders.OrderSigningService
 import com.wrbug.polymarketbot.service.common.BlockchainService
 import com.wrbug.polymarketbot.service.common.MarketService
@@ -43,7 +42,6 @@ open class CopyOrderTrackingService(
     private val accountRepository: AccountRepository,
     private val filterService: CopyTradingFilterService,
     private val leaderRepository: LeaderRepository,
-    private val leaderGroupControlService: LeaderGroupControlService,
     private val orderSigningService: OrderSigningService,
     private val blockchainService: BlockchainService,
     private val clobService: PolymarketClobService,
@@ -64,6 +62,7 @@ open class CopyOrderTrackingService(
         private const val MAX_RETRY_ATTEMPTS = 2
         private const val RETRY_DELAY_MS = 3000L
         private const val EMPTY_UNMATCHED_RETRY_DELAY_MS = 2000L
+        private const val COPY_TRADING_ORDER_EXECUTION_ENABLED = false
     }
 
     @PreDestroy
@@ -164,10 +163,16 @@ open class CopyOrderTrackingService(
     }
 
     suspend fun processBuyTrade(leaderId: Long, trade: TradeResponse, source: String): Result<Unit> {
+        if (!COPY_TRADING_ORDER_EXECUTION_ENABLED) {
+            return Result.success(Unit)
+        }
         return processBuyTradeOptimized(leaderId, trade, source)
     }
 
     suspend fun processSellTrade(leaderId: Long, trade: TradeResponse): Result<Unit> {
+        if (!COPY_TRADING_ORDER_EXECUTION_ENABLED) {
+            return Result.success(Unit)
+        }
         return processSellTradeOptimized(leaderId, trade)
     }
 
@@ -583,9 +588,6 @@ open class CopyOrderTrackingService(
             )
         )
         matchDetails.forEach { sellMatchDetailRepository.save(it.copy(matchRecordId = matchRecord.id!!)) }
-        if (priceUpdated) {
-            leaderGroupControlService.evaluateAutoPause(copyTrading.leaderId)
-        }
     }
 
     private suspend fun resolveBuyTradeSharedContext(

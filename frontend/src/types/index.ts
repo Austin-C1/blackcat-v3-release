@@ -386,7 +386,6 @@ export interface CopyTrading {
   leaderName?: string
   leaderAddress: string
   enabled: boolean
-  followSettingsEnabled: boolean
   maxOrderSize: string
   minOrderSize: string
   maxDailyLoss: string
@@ -410,7 +409,6 @@ export interface CopyTrading {
   pushFilteredOrders: boolean
   notificationRoutes?: CopyTradingNotificationRoute[]
   maxMarketEndDate?: number
-  followRules?: FollowAmountRule[]
   createdAt: number
   updatedAt: number
 }
@@ -431,7 +429,6 @@ export interface CopyTradingCreateRequest {
   accountId: number
   leaderId: number
   enabled?: boolean
-  followSettingsEnabled?: boolean
   maxOrderSize?: string
   minOrderSize?: string
   maxDailyLoss?: string
@@ -584,54 +581,6 @@ export interface Statistics {
   maxProfit: string
   maxLoss: string
   curveData: StatisticsCurvePoint[]
-}
-
-export interface FollowAmountRule {
-  id?: number
-  minLeaderAmount: string
-  maxLeaderAmount?: string | null
-  followAmount: string
-  followMaxAmount: string
-  sortOrder: number
-}
-
-export interface FollowSettingsResponse {
-  copyTradingId: number
-  enabled: boolean
-  rules: FollowAmountRule[]
-}
-
-export interface FollowSettingsSaveItem {
-  minLeaderAmount: string
-  maxLeaderAmount?: string | null
-  followAmount: string
-  followMaxAmount: string
-}
-
-export interface LeaderGroupControl {
-  leaderId: number
-  leaderName?: string | null
-  leaderAddress: string
-  autoPauseEnabled: boolean
-  profitTakeEnabled: boolean
-  profitTakePrice: string
-  status: string
-  pausedReason?: string | null
-  lastPeakPnl: string
-  currentPnl: string
-  currentDrawdownPercent: string
-  autoPausedAt?: number | null
-  lastEvaluatedAt?: number | null
-  trackedWindowDays: number
-  drawdownThresholdPercent: string
-}
-
-export interface LeaderGroupControlUpdateRequest {
-  leaderId: number
-  autoPauseEnabled: boolean
-  profitTakeEnabled: boolean
-  profitTakePrice: string
-  drawdownThresholdPercent: string
 }
 
 /**

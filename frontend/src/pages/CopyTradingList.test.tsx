@@ -8,7 +8,6 @@ const navigateMock = vi.fn()
 const fetchAccountsMock = vi.fn()
 const leadersListMock = vi.fn()
 const copyTradingListMock = vi.fn()
-const leaderGroupControlsMock = vi.fn()
 const loadCopyTradingStatisticsMapMock = vi.fn()
 const addModalPropsSpy = vi.fn()
 
@@ -51,12 +50,8 @@ vi.mock('../services/api', () => ({
     },
     copyTrading: {
       list: (...args: unknown[]) => copyTradingListMock(...args),
-      leaderGroupControls: (...args: unknown[]) => leaderGroupControlsMock(...args),
       updateStatus: vi.fn(),
       delete: vi.fn(),
-      updateLeaderGroupControl: vi.fn(),
-      restartLeaderGroup: vi.fn(),
-      closeLeaderGroup: vi.fn(),
     },
   },
 }))
@@ -96,7 +91,6 @@ function createCopyTrading(overrides: Partial<any>) {
     leaderName: 'debased',
     leaderAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     enabled: true,
-    followSettingsEnabled: true,
     maxOrderSize: '100',
     minOrderSize: '1',
     maxDailyLoss: '0',
@@ -111,7 +105,6 @@ function createCopyTrading(overrides: Partial<any>) {
     configName: '配置-1',
     pushFailedOrders: false,
     pushFilteredOrders: false,
-    followRules: [],
     createdAt: 0,
     updatedAt: 0,
     ...overrides,
@@ -131,27 +124,6 @@ function createLeader(overrides: Partial<any>) {
     totalPnl: '1230',
     createdAt: 0,
     updatedAt: 0,
-    ...overrides,
-  }
-}
-
-function createLeaderControl(overrides: Partial<any>) {
-  return {
-    leaderId: 101,
-    leaderName: 'debased',
-    leaderAddress: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    autoPauseEnabled: true,
-    profitTakeEnabled: false,
-    profitTakePrice: '0.95',
-    status: 'ACTIVE',
-    pausedReason: null,
-    lastPeakPnl: '310',
-    currentPnl: '220',
-    currentDrawdownPercent: '0',
-    autoPausedAt: null,
-    lastEvaluatedAt: null,
-    trackedWindowDays: 7,
-    drawdownThresholdPercent: '25',
     ...overrides,
   }
 }
@@ -187,7 +159,6 @@ describe('CopyTradingList', () => {
     fetchAccountsMock.mockReset()
     leadersListMock.mockReset()
     copyTradingListMock.mockReset()
-    leaderGroupControlsMock.mockReset()
     loadCopyTradingStatisticsMapMock.mockReset()
     addModalPropsSpy.mockReset()
 
@@ -276,27 +247,6 @@ describe('CopyTradingList', () => {
       },
     })
 
-    leaderGroupControlsMock.mockResolvedValue({
-      data: {
-        code: 0,
-        data: {
-          list: [
-            createLeaderControl({
-              leaderId: 101,
-              leaderName: 'debased',
-            }),
-            createLeaderControl({
-              leaderId: 102,
-              leaderName: 'DrPufferfish',
-              leaderAddress: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-              currentPnl: '90',
-              lastPeakPnl: '140',
-            }),
-          ],
-        },
-      },
-    })
-
     loadCopyTradingStatisticsMapMock.mockResolvedValue({
       1: { totalPnl: '40' },
       2: { totalPnl: '60' },
@@ -362,7 +312,7 @@ describe('CopyTradingList', () => {
     expect(screen.queryByText(/\+1,860 USDC/)).toBeNull()
   })
 
-  it('shows account remarks and separates lifetime pnl from seven-day pnl', async () => {
+  it('shows account remarks and lifetime pnl without risk fields', async () => {
     render(<CopyTradingList />)
 
     await waitFor(() => {
@@ -370,10 +320,12 @@ describe('CopyTradingList', () => {
     })
 
     expect(screen.getByText('长期观察账号')).toBeTruthy()
-    expect(screen.getAllByText('七日收益').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('7天最高点').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('七日收益 / 回撤').length).toBeGreaterThan(0)
     expect(screen.getAllByText(/总收益 \+40 USDC/).length).toBeGreaterThan(0)
+    expect(screen.queryByText('七日收益')).toBeNull()
+    expect(screen.queryByText('7天最高点')).toBeNull()
+    expect(screen.queryByText('七日收益 / 回撤')).toBeNull()
+    expect(screen.queryByText('自动暂停')).toBeNull()
+    expect(screen.queryByText(/规则/)).toBeNull()
     expect(screen.queryByText('当前收益 / 回撤')).toBeNull()
     expect(screen.queryByText(/当前收益 \+/)).toBeNull()
   })

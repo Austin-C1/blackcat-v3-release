@@ -24,7 +24,6 @@ const LeaderEdit = lazy(() => import('./pages/LeaderEdit'))
 const ConfigPage = lazy(() => import('./pages/ConfigPage'))
 const PositionList = lazy(() => import('./pages/PositionList'))
 const CopyTradingList = lazy(() => import('./pages/CopyTradingList'))
-const FollowSettings = lazy(() => import('./pages/FollowSettings'))
 const CopyTradingStatistics = lazy(() => import('./pages/CopyTradingStatistics'))
 const CopyTradingBuyOrders = lazy(() => import('./pages/CopyTradingBuyOrders'))
 const CopyTradingSellOrders = lazy(() => import('./pages/CopyTradingSellOrders'))
@@ -256,7 +255,7 @@ function App() {
           <Route path="/leaders/add" element={<ProtectedRoute><LazyRoute><LeaderAdd /></LazyRoute></ProtectedRoute>} />
           <Route path="/leaders/edit" element={<ProtectedRoute><LazyRoute><LeaderEdit /></LazyRoute></ProtectedRoute>} />
           <Route path="/copy-trading" element={<ProtectedRoute><LazyRoute><CopyTradingList /></LazyRoute></ProtectedRoute>} />
-          <Route path="/copy-trading-settings" element={<ProtectedRoute><LazyRoute><FollowSettings /></LazyRoute></ProtectedRoute>} />
+          <Route path="/copy-trading-settings" element={<ProtectedRoute><Navigate to="/copy-trading" replace /></ProtectedRoute>} />
           <Route path="/copy-trading/statistics/:copyTradingId" element={<ProtectedRoute><LazyRoute><CopyTradingStatistics /></LazyRoute></ProtectedRoute>} />
           <Route path="/copy-trading/orders/buy/:copyTradingId" element={<ProtectedRoute><LazyRoute><CopyTradingBuyOrders /></LazyRoute></ProtectedRoute>} />
           <Route path="/copy-trading/orders/sell/:copyTradingId" element={<ProtectedRoute><LazyRoute><CopyTradingSellOrders /></LazyRoute></ProtectedRoute>} />

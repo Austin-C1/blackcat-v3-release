@@ -9,7 +9,6 @@ const leadersListMock = vi.fn()
 const leaderBalanceMock = vi.fn()
 const leaderDetailMock = vi.fn()
 const copyTradingListMock = vi.fn()
-const leaderGroupControlsMock = vi.fn()
 const statisticsBatchDetailMock = vi.fn()
 
 const translations: Record<string, string> = {
@@ -39,7 +38,6 @@ const translations: Record<string, string> = {
   'leaderDetail.title': 'Leader detail',
   'leaderDetail.totalBalance': 'Total balance',
   'leaderDetail.updatedAt': 'Updated at',
-  'leaderDetail.weeklyPnl': 'Weekly pnl',
   'leaderDetail.totalPnl': 'Total pnl',
   'leaderList.addLeader': 'Add leader',
   'leaderList.assetOverview': 'Asset overview',
@@ -58,7 +56,6 @@ const translations: Record<string, string> = {
   'leaderList.ungrouped': 'Ungrouped',
   'leaderList.viewBacktests': 'View backtests',
   'leaderList.viewCopyTradings': 'View copy tradings',
-  'leaderList.weeklyPnl': 'Weekly pnl',
 }
 
 vi.mock('react-responsive', () => ({
@@ -86,7 +83,6 @@ vi.mock('../services/api', () => ({
     },
     copyTrading: {
       list: (...args: unknown[]) => copyTradingListMock(...args),
-      leaderGroupControls: (...args: unknown[]) => leaderGroupControlsMock(...args),
     },
     statistics: {
       batchDetail: (...args: unknown[]) => statisticsBatchDetailMock(...args),
@@ -155,7 +151,6 @@ describe('LeaderList', () => {
     leaderBalanceMock.mockReset()
     leaderDetailMock.mockReset()
     copyTradingListMock.mockReset()
-    leaderGroupControlsMock.mockReset()
     statisticsBatchDetailMock.mockReset()
 
     leadersListMock.mockResolvedValue({
@@ -246,42 +241,6 @@ describe('LeaderList', () => {
       },
     })
 
-    leaderGroupControlsMock.mockResolvedValue({
-      data: {
-        code: 0,
-        data: {
-          list: [
-            {
-              leaderId: 1,
-              leaderAddress: '0x1111111111111111111111111111111111111111',
-              autoPauseEnabled: false,
-              profitTakeEnabled: false,
-              profitTakePrice: '0',
-              status: 'RUNNING',
-              lastPeakPnl: '15',
-              currentPnl: '12.5',
-              currentDrawdownPercent: '0',
-              trackedWindowDays: 7,
-              drawdownThresholdPercent: '25',
-            },
-            {
-              leaderId: 2,
-              leaderAddress: '0x2222222222222222222222222222222222222222',
-              autoPauseEnabled: false,
-              profitTakeEnabled: false,
-              profitTakePrice: '0',
-              status: 'RUNNING',
-              lastPeakPnl: '6',
-              currentPnl: '5',
-              currentDrawdownPercent: '0',
-              trackedWindowDays: 7,
-              drawdownThresholdPercent: '25',
-            },
-          ],
-        },
-      },
-    })
-
     statisticsBatchDetailMock.mockResolvedValue({
       data: {
         code: 0,
@@ -322,7 +281,7 @@ describe('LeaderList', () => {
     expect(screen.queryByText('debased')).toBeNull()
   })
 
-  it('shows position, cash, position value, weekly pnl and total pnl in asset overview after expanding a group', async () => {
+  it('shows position, cash, position value and total pnl in asset overview after expanding a group', async () => {
     render(<LeaderList />)
 
     await waitFor(() => {
@@ -339,9 +298,8 @@ describe('LeaderList', () => {
     expect(screen.getAllByText('Positions').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Cash').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Position value').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Weekly pnl').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Total pnl').length).toBeGreaterThan(0)
-    expect(screen.getByText('+12.5 USDC')).toBeTruthy()
+    expect(screen.queryByText('Weekly pnl')).toBeNull()
     expect(screen.getByText('+25 USDC')).toBeTruthy()
   })
 
@@ -368,8 +326,8 @@ describe('LeaderList', () => {
     expect(screen.getAllByText('Positions').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Cash').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Position value').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Weekly pnl').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Total pnl').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Weekly pnl')).toBeNull()
     expect(screen.getByText('Will the Celtics win?')).toBeTruthy()
     expect(screen.getByText('Will BTC hit 100k?')).toBeTruthy()
   })
