@@ -105,6 +105,7 @@ class MarketBettingQueryService(
             val markets = event.markets.orEmpty()
                 .filter { !it.conditionId.isNullOrBlank() }
                 .filter { market -> MarketBettingMarketFilter.belongsToEvent(market, event) }
+                .filter { market -> MarketBettingMarketFilter.isMainGameMarket(market) }
                 .filter { market -> normalizedDate == null || MarketBettingDateFilter.matches(market, normalizedDate) }
                 .take(marketLimit.coerceIn(1, 100))
 
@@ -368,6 +369,8 @@ object MarketBettingTelegramCommandParser {
 data class MarketBettingTelegramCommand(val query: String, val date: String? = null)
 
 object MarketBettingMarketFilter {
+    private val mainGameMarketTypes = setOf("moneyline", "spreads", "totals")
+
     fun belongsToEvent(market: GammaEventMarketItem, event: GammaSearchEventItem): Boolean {
         val eventSlug = event.slug.orEmpty().trim().lowercase()
         val marketSlug = market.slug.orEmpty().trim().lowercase()
@@ -378,6 +381,13 @@ object MarketBettingMarketFilter {
         val eventTitle = normalizeText(event.title)
         val marketQuestion = normalizeText(market.question)
         return eventTitle.isNotBlank() && eventTitle == marketQuestion
+    }
+
+    fun isMainGameMarket(market: GammaEventMarketItem): Boolean {
+        val type = market.sportsMarketType?.takeIf { it.isNotBlank() }
+            ?: market.marketType?.takeIf { it.isNotBlank() }
+            ?: return false
+        return type.trim().lowercase() in mainGameMarketTypes
     }
 
     private fun normalizeText(value: String?): String =

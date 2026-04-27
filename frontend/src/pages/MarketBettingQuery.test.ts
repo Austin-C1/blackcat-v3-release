@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { displayMarketTitle, displayOutcomeName } from './marketBettingDisplay'
+import { displayMarketTitle, displayOutcomeName, isMainGameMarketType } from './marketBettingDisplay'
 
 describe('market betting query page', () => {
   const source = () => readFileSync(join(process.cwd(), 'src', 'pages', 'MarketBettingQuery.tsx'), 'utf8')
@@ -36,5 +36,14 @@ describe('market betting query page', () => {
     expect(displayMarketTitle('Luquentz Dort: Points O/U 2.5')).toBe('Luquentz Dort: Points 大小 2.5')
     expect(displayOutcomeName('Yes', 'Luquentz Dort: Points O/U 2.5', 'points')).toBe('大')
     expect(displayOutcomeName('No', 'Luquentz Dort: Points O/U 2.5', 'points')).toBe('小')
+  })
+  it('keeps only main game markets in the visible list', () => {
+    expect(isMainGameMarketType('moneyline')).toBe(true)
+    expect(isMainGameMarketType('spreads')).toBe(true)
+    expect(isMainGameMarketType('totals')).toBe(true)
+    expect(isMainGameMarketType('points')).toBe(false)
+    expect(isMainGameMarketType('rebounds')).toBe(false)
+    expect(isMainGameMarketType('assists')).toBe(false)
+    expect(isMainGameMarketType('first_half_totals')).toBe(false)
   })
 })

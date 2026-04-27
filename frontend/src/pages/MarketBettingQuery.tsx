@@ -6,7 +6,7 @@ import type { ColumnsType } from 'antd/es/table'
 import { apiService } from '../services/api'
 import type { MarketBettingEventDetail, MarketBettingEventSummary, MarketBettingMarketDetail, MarketBettingOutcomeDetail, NotificationConfig } from '../types'
 import { extractTelegramConfig, normalizeChatIds } from './notificationSettingsHelpers'
-import { displayMarketTitle, displayOutcomeName } from './marketBettingDisplay'
+import { displayMarketTitle, displayOutcomeName, isMainGameMarketType } from './marketBettingDisplay'
 
 const { Title, Text } = Typography
 
@@ -184,6 +184,7 @@ const MarketBettingQuery: React.FC = () => {
       ),
     },
   ]
+  const mainMarkets = detail?.markets.filter((market) => isMainGameMarketType(market.marketType)) ?? []
 
   return (
     <div>
@@ -248,12 +249,12 @@ const MarketBettingQuery: React.FC = () => {
                   <Space wrap>
                     <Tag color="blue">总成交额 {formatUsdc(detail.event.volume)}</Tag>
                     <Tag color="green">总挂单金额 {formatUsdc(detail.event.liquidity)}</Tag>
-                    <Tag>盘口数 {detail.event.marketsCount}</Tag>
+                    <Tag>盘口数 {mainMarkets.length}</Tag>
                   </Space>
                   <Table
                     rowKey={(record) => record.conditionId || record.id}
                     columns={marketColumns}
-                    dataSource={detail.markets}
+                    dataSource={mainMarkets}
                     pagination={{ pageSize: 10 }}
                     expandable={{ expandedRowRender: (record) => <OutcomeList outcomes={record.outcomes} marketTitle={record.groupItemTitle || record.question} marketType={record.marketType} /> }}
                   />

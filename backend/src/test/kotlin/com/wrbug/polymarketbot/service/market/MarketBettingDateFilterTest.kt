@@ -58,4 +58,16 @@ class MarketBettingDateFilterTest {
         assertTrue(MarketBettingMarketFilter.belongsToEvent(exactTitleFallbackMarket, selectedEvent))
         assertFalse(MarketBettingMarketFilter.belongsToEvent(otherEventMarket, selectedEvent))
     }
+
+    @Test
+    fun `keeps only main game markets by default`() {
+        assertTrue(MarketBettingMarketFilter.isMainGameMarket(GammaEventMarketItem(sportsMarketType = "moneyline")))
+        assertTrue(MarketBettingMarketFilter.isMainGameMarket(GammaEventMarketItem(sportsMarketType = "spreads")))
+        assertTrue(MarketBettingMarketFilter.isMainGameMarket(GammaEventMarketItem(sportsMarketType = "totals")))
+
+        assertFalse(MarketBettingMarketFilter.isMainGameMarket(GammaEventMarketItem(sportsMarketType = "points")))
+        assertFalse(MarketBettingMarketFilter.isMainGameMarket(GammaEventMarketItem(sportsMarketType = "rebounds")))
+        assertFalse(MarketBettingMarketFilter.isMainGameMarket(GammaEventMarketItem(sportsMarketType = "assists")))
+        assertFalse(MarketBettingMarketFilter.isMainGameMarket(GammaEventMarketItem(sportsMarketType = "first_half_totals")))
+    }
 }
