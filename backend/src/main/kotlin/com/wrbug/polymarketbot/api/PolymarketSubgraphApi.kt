@@ -51,6 +51,14 @@ interface PolymarketDataApi {
         @Query("limit") limit: Int? = null,
         @Query("minBalance") minBalance: Int? = null
     ): Response<List<MarketHoldersResponse>>
+
+    @GET("/trades")
+    suspend fun getTrades(
+        @Query("market") market: String,
+        @Query("limit") limit: Int? = null,
+        @Query("offset") offset: Int? = null,
+        @Query("takerOnly") takerOnly: Boolean? = null
+    ): Response<List<UserActivityResponse>>
 }
 
 data class MarketHoldersResponse(

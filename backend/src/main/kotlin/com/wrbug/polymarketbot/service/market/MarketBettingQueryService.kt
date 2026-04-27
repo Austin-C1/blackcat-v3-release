@@ -5,6 +5,7 @@ import com.google.gson.reflect.TypeToken
 import com.wrbug.polymarketbot.api.GammaEventMarketItem
 import com.wrbug.polymarketbot.api.GammaSearchEventItem
 import com.wrbug.polymarketbot.api.OrderbookEntry
+import com.wrbug.polymarketbot.api.UserActivityResponse
 import com.wrbug.polymarketbot.dto.*
 import com.wrbug.polymarketbot.util.RetrofitFactory
 import kotlinx.coroutines.Dispatchers
@@ -93,21 +94,54 @@ class MarketBettingQueryService(
                 .take(marketLimit.coerceIn(1, 100))
 
             val holderMap = loadHolders(markets.mapNotNull { it.conditionId }.distinct())
+            val tradeMap = loadTrades(markets.mapNotNull { it.conditionId }.distinct())
             val details = coroutineScope {
                 markets.map { market ->
-                    async { market.toDetail(holderMap) }
+                    async { market.toDetail(holderMap, tradeMap) }
                 }.awaitAll()
             }
 
             summary.copy(marketsCount = event.markets?.size ?: details.size).let { resolvedSummary ->
                 MarketBettingEventDetail(resolvedSummary, details)
-            }
         }
+    }
+
+    private data class TradeSnapshot(
+        val tradedShares: String
+    )
 
     private data class HolderSnapshot(
         val totalShares: String,
         val topHolders: List<MarketBettingHolder>
     )
+
+    private suspend fun loadTrades(conditionIds: List<String>): Map<String, TradeSnapshot> {
+        if (conditionIds.isEmpty()) return emptyMap()
+        return withContext(Dispatchers.IO) {
+            try {
+                val trades = mutableListOf<UserActivityResponse>()
+                val marketQuery = conditionIds.joinToString(",")
+                listOf(0, 1000, 2000, 3000).forEach { offset ->
+                    val response = dataApi.getTrades(
+                        market = marketQuery,
+                        limit = 1000,
+                        offset = offset,
+                        takerOnly = true
+                    )
+                    if (!response.isSuccessful) return@forEach
+                    val page = response.body().orEmpty()
+                    trades += page
+                    if (page.size < 1000) return@withContext MarketBettingTradeAggregator.summarizeByAsset(trades)
+                        .mapValues { (_, value) -> TradeSnapshot(value.tradedShares) }
+                }
+                MarketBettingTradeAggregator.summarizeByAsset(trades)
+                    .mapValues { (_, value) -> TradeSnapshot(value.tradedShares) }
+            } catch (e: Exception) {
+                logger.warn("load trades failed: {}", e.message)
+                emptyMap()
+            }
+        }
+    }
 
     private suspend fun loadHolders(conditionIds: List<String>): Map<String, HolderSnapshot> {
         if (conditionIds.isEmpty()) return emptyMap()
@@ -138,7 +172,8 @@ class MarketBettingQueryService(
     }
 
     private suspend fun GammaEventMarketItem.toDetail(
-        holderMap: Map<String, HolderSnapshot>
+        holderMap: Map<String, HolderSnapshot>,
+        tradeMap: Map<String, TradeSnapshot>
     ): MarketBettingMarketDetail {
         val outcomeNames = parseStringArray(outcomes).ifEmpty { listOf("Yes", "No") }
         val prices = parseStringArray(outcomePrices)
@@ -154,7 +189,9 @@ class MarketBettingQueryService(
                         name = name,
                         tokenId = tokenId,
                         odds = formatOdds(prices.getOrNull(index) ?: lastTradePrice?.toString()),
-                        tradedShares = holderMap[tokenId]?.totalShares ?: "0",
+                        tradedShares = tradeMap[tokenId]?.tradedShares
+                            ?: holderMap[tokenId]?.totalShares
+                            ?: "0",
                         bidOrderAmount = formatDecimal(orderbook?.bids?.sumOrderAmount()),
                         askOrderAmount = formatDecimal(orderbook?.asks?.sumOrderAmount()),
                         topHolders = holderMap[tokenId]?.topHolders.orEmpty()
@@ -205,6 +242,21 @@ class MarketBettingQueryService(
         }.getOrElse {
             raw.trim('[', ']').split(',').map { item -> item.trim().trim('"') }.filter { item -> item.isNotBlank() }
         }
+    }
+}
+
+object MarketBettingTradeAggregator {
+    data class TradeSummary(
+        val tradedShares: String
+    )
+
+    fun summarizeByAsset(trades: List<UserActivityResponse>): Map<String, TradeSummary> {
+        return trades
+            .filter { !it.asset.isNullOrBlank() }
+            .groupBy { it.asset.orEmpty() }
+            .mapValues { (_, assetTrades) ->
+                TradeSummary(formatDecimal(assetTrades.sumOf { it.size ?: 0.0 }))
+            }
     }
 }
 
