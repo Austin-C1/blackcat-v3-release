@@ -105,11 +105,11 @@ data class SignedOrderObject(
     val salt: Long,                    // random salt used to create unique order
     val maker: String,                  // maker address (funder)
     val signer: String,                 // signing address
-    val taker: String,                  // taker address (operator)
+    val taker: String? = null,          // removed from V2 wire payload
     val tokenId: String,                // ERC1155 token ID of conditional token being traded
     val makerAmount: String,            // maximum amount maker is willing to spend
     val takerAmount: String,            // minimum amount taker will pay the maker in return
-    val expiration: String = "0",       // unix expiration timestamp
+    val expiration: String? = null,     // removed from V2 wire payload
     val nonce: String? = null,          // removed from V2 signing payload
     val feeRateBps: String? = null,     // removed from V2 signing payload
     val side: String,                   // buy or sell enum index ("BUY" or "SELL")

@@ -15,6 +15,7 @@ import com.wrbug.polymarketbot.util.fromJson
 import com.wrbug.polymarketbot.util.getEventSlug
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
+import com.wrbug.polymarketbot.constants.PolymarketConstants
 import com.wrbug.polymarketbot.service.common.PolymarketClobService
 import com.wrbug.polymarketbot.service.common.BlockchainService
 import com.wrbug.polymarketbot.service.common.MarketService
@@ -322,10 +323,10 @@ class AccountService(
     }
 
     private val setupApprovalSpenders = mapOf(
-        "CTF_CONTRACT" to "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045",           // Conditional Tokens
-        "CTF_EXCHANGE" to "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E",
-        "NEG_RISK_EXCHANGE" to "0xC5d563A36AE78145C45a50134d48A1215220f80a",
-        "NEG_RISK_ADAPTER" to "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296"
+        "CTF_CONTRACT" to PolymarketConstants.CTF_CONTRACT_ADDRESS,
+        "CTF_EXCHANGE" to PolymarketConstants.CTF_EXCHANGE_V2_ADDRESS,
+        "NEG_RISK_EXCHANGE" to PolymarketConstants.NEG_RISK_CTF_EXCHANGE_V2_ADDRESS,
+        "NEG_RISK_ADAPTER" to PolymarketConstants.NEG_RISK_ADAPTER_ADDRESS
     )
 
     private val usdcDecimals = java.math.BigDecimal("1000000")
@@ -1160,15 +1161,7 @@ class AccountService(
                 "LIMIT" -> "GTC"   // Good-Til-Cancelled
                 else -> "GTC"
             }
-            val expiration = "0"
             val decryptedPrivateKey = decryptPrivateKey(account)
-            val feeRateResult = clobService.getFeeRate(tokenId)
-            val feeRateBps = if (feeRateResult.isSuccess) {
-                feeRateResult.getOrNull()?.toString() ?: "0"
-            } else {
-                logger.warn("获取费率失败，使用默认值 0: tokenId=$tokenId, error=${feeRateResult.exceptionOrNull()?.message}")
-                "0"
-            }
             val signedOrder = try {
                 orderSigningService.createAndSignOrder(
                     privateKey = decryptedPrivateKey,
@@ -1177,8 +1170,7 @@ class AccountService(
                     side = "SELL",
                     price = sellPrice,
                     size = sellQuantity.toPlainString(),
-                    signatureType = orderSigningService.getSignatureTypeForWalletType(account.walletType),
-                    expiration = expiration
+                    signatureType = orderSigningService.getSignatureTypeForWalletType(account.walletType)
                 )
             } catch (e: Exception) {
                 logger.error("创建并签名订单失败", e)

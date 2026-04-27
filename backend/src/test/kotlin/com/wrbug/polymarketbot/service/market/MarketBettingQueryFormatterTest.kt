@@ -42,6 +42,7 @@ class MarketBettingQueryFormatterTest {
                             name = "Wild",
                             tokenId = "111",
                             odds = "0.45",
+                            tradedShares = "530.5",
                             bidOrderAmount = "1200.00",
                             askOrderAmount = "900.00",
                             topHolders = listOf(
@@ -53,6 +54,7 @@ class MarketBettingQueryFormatterTest {
                             name = "Stars",
                             tokenId = "222",
                             odds = "0.55",
+                            tradedShares = "231.3842",
                             bidOrderAmount = "1500.00",
                             askOrderAmount = "1100.00",
                             topHolders = listOf(MarketBettingHolder("0xccc", "charlie", "231.3842"))
@@ -80,9 +82,11 @@ class MarketBettingQueryFormatterTest {
         assertTrue(formatted.contains("moneyline"))
         assertTrue(formatted.contains("totals 5.5"))
         assertTrue(formatted.contains("Wild 45%"))
+        assertTrue(formatted.contains("已成交 shares: 530.5"))
         assertTrue(formatted.contains("挂单: 买 1,200 USDC / 卖 900 USDC"))
         assertTrue(formatted.contains("Top 5 shares"))
         assertTrue(formatted.contains("alpha 320.5 shares"))
+        assertTrue(formatted.contains("https://polymarket.com/profile/0xaaa"))
     }
 
     @Test

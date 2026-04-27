@@ -104,23 +104,31 @@ class MarketBettingQueryService(
             }
         }
 
-    private suspend fun loadHolders(conditionIds: List<String>): Map<String, List<MarketBettingHolder>> {
+    private data class HolderSnapshot(
+        val totalShares: String,
+        val topHolders: List<MarketBettingHolder>
+    )
+
+    private suspend fun loadHolders(conditionIds: List<String>): Map<String, HolderSnapshot> {
         if (conditionIds.isEmpty()) return emptyMap()
         return withContext(Dispatchers.IO) {
             try {
-                val response = dataApi.getHolders(conditionIds.joinToString(","), limit = 5, minBalance = 0)
+                val response = dataApi.getHolders(conditionIds.joinToString(","), limit = 500, minBalance = 0)
                 if (!response.isSuccessful) return@withContext emptyMap()
                 response.body().orEmpty().associate { token ->
-                    token.token.orEmpty() to token.holders.orEmpty()
+                    val holders = token.holders.orEmpty()
                         .sortedByDescending { it.amount ?: 0.0 }
-                        .take(5)
-                        .map {
+                    val totalShares = holders.sumOf { it.amount ?: 0.0 }
+                    token.token.orEmpty() to HolderSnapshot(
+                        totalShares = formatDecimal(totalShares),
+                        topHolders = holders.take(5).map {
                             MarketBettingHolder(
                                 wallet = it.proxyWallet.orEmpty(),
                                 name = it.name?.takeIf { name -> name.isNotBlank() } ?: it.pseudonym?.takeIf { name -> name.isNotBlank() },
                                 shares = formatDecimal(it.amount)
                             )
                         }
+                    )
                 }
             } catch (e: Exception) {
                 logger.warn("load holders failed: {}", e.message)
@@ -130,7 +138,7 @@ class MarketBettingQueryService(
     }
 
     private suspend fun GammaEventMarketItem.toDetail(
-        holderMap: Map<String, List<MarketBettingHolder>>
+        holderMap: Map<String, HolderSnapshot>
     ): MarketBettingMarketDetail {
         val outcomeNames = parseStringArray(outcomes).ifEmpty { listOf("Yes", "No") }
         val prices = parseStringArray(outcomePrices)
@@ -146,9 +154,10 @@ class MarketBettingQueryService(
                         name = name,
                         tokenId = tokenId,
                         odds = formatOdds(prices.getOrNull(index) ?: lastTradePrice?.toString()),
+                        tradedShares = holderMap[tokenId]?.totalShares ?: "0",
                         bidOrderAmount = formatDecimal(orderbook?.bids?.sumOrderAmount()),
                         askOrderAmount = formatDecimal(orderbook?.asks?.sumOrderAmount()),
-                        topHolders = holderMap[tokenId].orEmpty()
+                        topHolders = holderMap[tokenId]?.topHolders.orEmpty()
                     )
                 }
             }.awaitAll()
@@ -244,6 +253,7 @@ object MarketBettingQueryFormatter {
                 appendLine("类型: $type | 成交额: ${formatUsdc(market.volume)}")
                 market.outcomes.forEach { outcome ->
                     appendLine("- ${escape(outcome.name)} ${formatPercent(outcome.odds)}")
+                    appendLine("  已成交 shares: ${formatShares(outcome.tradedShares)}")
                     appendLine("  挂单: 买 ${formatUsdc(outcome.bidOrderAmount)} / 卖 ${formatUsdc(outcome.askOrderAmount)}")
                     appendLine("  Top 5 shares:")
                     if (outcome.topHolders.isEmpty()) {
@@ -253,6 +263,9 @@ object MarketBettingQueryFormatter {
                             val holderName = holder.name?.takeIf { it.isNotBlank() }
                                 ?: shortenWallet(holder.wallet)
                             appendLine("  ${holderIndex + 1}. ${escape(holderName)} ${holder.shares} shares")
+                            if (holder.profileUrl.isNotBlank()) {
+                                appendLine("     ${holder.profileUrl}")
+                            }
                         }
                     }
                 }
@@ -268,6 +281,11 @@ object MarketBettingQueryFormatter {
     private fun formatPercent(value: String): String {
         val amount = value.toBigDecimalOrNull() ?: return value
         return "${amount.multiply(BigDecimal(100)).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()}%"
+    }
+
+    private fun formatShares(value: String): String {
+        val amount = value.toBigDecimalOrNull() ?: return value
+        return DecimalFormat("#,##0.####").format(amount)
     }
 
     private fun shortenWallet(wallet: String): String {

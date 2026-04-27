@@ -54,6 +54,7 @@ data class MarketBettingOutcomeDetail(
     val name: String,
     val tokenId: String,
     val odds: String,
+    val tradedShares: String = "0",
     val bidOrderAmount: String,
     val askOrderAmount: String,
     val topHolders: List<MarketBettingHolder>
@@ -62,5 +63,6 @@ data class MarketBettingOutcomeDetail(
 data class MarketBettingHolder(
     val wallet: String,
     val name: String?,
-    val shares: String
+    val shares: String,
+    val profileUrl: String = if (wallet.isNotBlank()) "https://polymarket.com/profile/$wallet" else ""
 )

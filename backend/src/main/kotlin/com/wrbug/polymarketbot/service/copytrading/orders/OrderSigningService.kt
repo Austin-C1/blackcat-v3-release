@@ -127,7 +127,6 @@ class OrderSigningService {
             val signerAddress = credentials.address.lowercase()
             val amounts = calculateOrderAmounts(side, size, price)
             val salt = generateSalt()
-            val taker = PolymarketConstants.ZERO_ADDRESS
             val makerAddressLower = makerAddress.lowercase()
             logger.debug("========== 订单签名前参数 ==========")
             logger.debug("订单方向: $side, 价格: $price, 数量: $size")
@@ -158,11 +157,9 @@ class OrderSigningService {
                 salt = salt,
                 maker = makerAddressLower,
                 signer = signerAddress,
-                taker = taker,
                 tokenId = tokenId,
                 makerAmount = amounts.makerAmount,
                 takerAmount = amounts.takerAmount,
-                expiration = expiration,
                 side = side.uppercase(),
                 signatureType = signatureType,
                 timestamp = timestamp,

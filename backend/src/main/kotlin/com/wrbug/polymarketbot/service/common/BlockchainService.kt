@@ -190,7 +190,7 @@ class BlockchainService(
                 method = "eth_call",
                 params = listOf(
                     mapOf(
-                        "to" to usdcContractAddress,
+                        "to" to pusdContractAddress,
                         "data" to ("0xdd62ed3e" + EthereumUtils.encodeAddress(owner) + EthereumUtils.encodeAddress(spender))
                     ),
                     "latest"
@@ -441,7 +441,7 @@ class BlockchainService(
             val collectionId = collectionIdResult.result?.asString 
                 ?: return Result.failure(Exception("getCollectionId returned empty result"))
             val getPositionIdSelector = EthereumUtils.getFunctionSelector("getPositionId(address,bytes32)")
-            val encodedCollateral = EthereumUtils.encodeAddress(usdcContractAddress)
+            val encodedCollateral = EthereumUtils.encodeAddress(pusdContractAddress)
             val encodedCollectionId = EthereumUtils.encodeBytes32(collectionId)
             val positionIdData = getPositionIdSelector + encodedCollateral + encodedCollectionId
             

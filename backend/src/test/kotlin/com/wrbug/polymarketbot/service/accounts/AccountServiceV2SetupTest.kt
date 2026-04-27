@@ -1,6 +1,7 @@
 package com.wrbug.polymarketbot.service.accounts
 
 import com.wrbug.polymarketbot.entity.Account
+import com.wrbug.polymarketbot.constants.PolymarketConstants
 import com.wrbug.polymarketbot.enums.WalletType
 import com.wrbug.polymarketbot.repository.AccountRepository
 import com.wrbug.polymarketbot.service.common.BlockchainService
@@ -61,13 +62,13 @@ class AccountServiceV2SetupTest {
         val account = demoAccount()
         `when`(accountRepository.findById(account.id!!)).thenReturn(Optional.of(account))
         `when`(blockchainService.isProxyDeployed(account.proxyAddress)).thenReturn(true)
-        `when`(blockchainService.getUsdcAllowance(account.proxyAddress, "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"))
+        `when`(blockchainService.getUsdcAllowance(account.proxyAddress, PolymarketConstants.CTF_CONTRACT_ADDRESS))
             .thenReturn(Result.success(unlimitedAllowance))
-        `when`(blockchainService.getUsdcAllowance(account.proxyAddress, "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E"))
+        `when`(blockchainService.getUsdcAllowance(account.proxyAddress, PolymarketConstants.CTF_EXCHANGE_V2_ADDRESS))
             .thenReturn(Result.success(unlimitedAllowance))
-        `when`(blockchainService.getUsdcAllowance(account.proxyAddress, "0xC5d563A36AE78145C45a50134d48A1215220f80a"))
+        `when`(blockchainService.getUsdcAllowance(account.proxyAddress, PolymarketConstants.NEG_RISK_CTF_EXCHANGE_V2_ADDRESS))
             .thenReturn(Result.success(unlimitedAllowance))
-        `when`(blockchainService.getUsdcAllowance(account.proxyAddress, "0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296"))
+        `when`(blockchainService.getUsdcAllowance(account.proxyAddress, PolymarketConstants.NEG_RISK_ADAPTER_ADDRESS))
             .thenReturn(Result.success(unlimitedAllowance))
 
         val result = service.checkAccountSetupStatus(account.id!!)
@@ -100,13 +101,13 @@ class AccountServiceV2SetupTest {
         `when`(cryptoUtils.decrypt(account.builderApiKey!!)).thenReturn(builderCredentials.apiKey)
         `when`(cryptoUtils.decrypt(account.builderSecret!!)).thenReturn(builderCredentials.secret)
         `when`(cryptoUtils.decrypt(account.builderPassphrase!!)).thenReturn(builderCredentials.passphrase)
-        `when`(relayClientService.createUsdcApproveTx("0x4D97DCd97eC945f40cF65F87097ACe5EA0476045", unlimitedAllowance))
+        `when`(relayClientService.createUsdcApproveTx(PolymarketConstants.CTF_CONTRACT_ADDRESS, unlimitedAllowance))
             .thenReturn(approveTx1)
-        `when`(relayClientService.createUsdcApproveTx("0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E", unlimitedAllowance))
+        `when`(relayClientService.createUsdcApproveTx(PolymarketConstants.CTF_EXCHANGE_V2_ADDRESS, unlimitedAllowance))
             .thenReturn(approveTx2)
-        `when`(relayClientService.createUsdcApproveTx("0xC5d563A36AE78145C45a50134d48A1215220f80a", unlimitedAllowance))
+        `when`(relayClientService.createUsdcApproveTx(PolymarketConstants.NEG_RISK_CTF_EXCHANGE_V2_ADDRESS, unlimitedAllowance))
             .thenReturn(approveTx3)
-        `when`(relayClientService.createUsdcApproveTx("0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296", unlimitedAllowance))
+        `when`(relayClientService.createUsdcApproveTx(PolymarketConstants.NEG_RISK_ADAPTER_ADDRESS, unlimitedAllowance))
             .thenReturn(approveTx4)
         `when`(relayClientService.createMultiSendTx(listOf(approveTx1, approveTx2, approveTx3, approveTx4)))
             .thenReturn(multisendTx)
@@ -124,10 +125,10 @@ class AccountServiceV2SetupTest {
 
         assertTrue(result.isSuccess)
         assertEquals("0xtx", result.getOrThrow().transactionHash)
-        verify(relayClientService).createUsdcApproveTx("0x4D97DCd97eC945f40cF65F87097ACe5EA0476045", unlimitedAllowance)
-        verify(relayClientService).createUsdcApproveTx("0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E", unlimitedAllowance)
-        verify(relayClientService).createUsdcApproveTx("0xC5d563A36AE78145C45a50134d48A1215220f80a", unlimitedAllowance)
-        verify(relayClientService).createUsdcApproveTx("0xd91E80cF2E7be2e162c6513ceD06f1dD0dA35296", unlimitedAllowance)
+        verify(relayClientService).createUsdcApproveTx(PolymarketConstants.CTF_CONTRACT_ADDRESS, unlimitedAllowance)
+        verify(relayClientService).createUsdcApproveTx(PolymarketConstants.CTF_EXCHANGE_V2_ADDRESS, unlimitedAllowance)
+        verify(relayClientService).createUsdcApproveTx(PolymarketConstants.NEG_RISK_CTF_EXCHANGE_V2_ADDRESS, unlimitedAllowance)
+        verify(relayClientService).createUsdcApproveTx(PolymarketConstants.NEG_RISK_ADAPTER_ADDRESS, unlimitedAllowance)
     }
 
     private fun demoAccount() = Account(

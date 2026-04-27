@@ -32,8 +32,8 @@ class OrderSigningServiceV2Test {
             exchangeContract = service.getExchangeContract(false)
         )
 
-        assertEquals("0x0000000000000000000000000000000000000000", order.taker)
-        assertEquals("0", order.expiration)
+        assertEquals(null, order.taker)
+        assertEquals(null, order.expiration)
         assertNotNull(order.timestamp)
         assertTrue(order.timestamp!!.toLong() > 0)
         assertEquals("0x0000000000000000000000000000000000000000000000000000000000000000", order.metadata)
@@ -55,5 +55,7 @@ class OrderSigningServiceV2Test {
         assertTrue(json.contains("\"builder\""))
         assertFalse(json.contains("feeRateBps"))
         assertFalse(json.contains("\"nonce\""))
+        assertFalse(json.contains("\"taker\""))
+        assertFalse(json.contains("\"expiration\""))
     }
 }

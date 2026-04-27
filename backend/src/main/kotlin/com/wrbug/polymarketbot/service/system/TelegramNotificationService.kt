@@ -42,17 +42,23 @@ internal fun filterTelegramConfigsForAudience(
     return when (audience) {
         TelegramNotificationAudience.ALL -> telegramConfigs.map { it.first }
         TelegramNotificationAudience.MONITOR_ONLY -> telegramConfigs
-            .filter { (_, telegramConfig) -> telegramConfig.data.monitorModeEnabled == true }
+            .filter { (_, telegramConfig) ->
+                telegramConfig.data.monitorModeEnabled == true && telegramConfig.data.marketBettingQueryEnabled != true
+            }
             .map { it.first }
         TelegramNotificationAudience.STANDARD -> {
             val standardConfigs = telegramConfigs
-                .filter { (_, telegramConfig) -> telegramConfig.data.monitorModeEnabled != true }
+                .filter { (_, telegramConfig) ->
+                    telegramConfig.data.monitorModeEnabled != true && telegramConfig.data.marketBettingQueryEnabled != true
+                }
                 .map { it.first }
 
             if (standardConfigs.isNotEmpty()) {
                 standardConfigs
             } else {
-                telegramConfigs.map { it.first }
+                telegramConfigs
+                    .filter { (_, telegramConfig) -> telegramConfig.data.marketBettingQueryEnabled != true }
+                    .map { it.first }
             }
         }
     }

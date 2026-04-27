@@ -33,6 +33,7 @@ const HolderList = ({ holders }: { holders: MarketBettingHolder[] }) => {
       {holders.slice(0, 5).map((holder, index) => (
         <Text key={`${holder.wallet}-${index}`} style={{ fontSize: 12 }}>
           {index + 1}. {holder.name || shortWallet(holder.wallet)} {holder.shares} shares
+          {holder.profileUrl ? <> <a href={holder.profileUrl} target="_blank" rel="noreferrer">打开</a></> : null}
         </Text>
       ))}
     </Space>
@@ -50,6 +51,7 @@ const OutcomeList = ({ outcomes }: { outcomes: MarketBettingOutcomeDetail[] }) =
       columns={[
         { title: '方向', dataIndex: 'name', width: 140 },
         { title: '当前赔率', dataIndex: 'odds', width: 120, render: (value) => <Tag color="blue">{formatOdds(value)}</Tag> },
+        { title: '已成交 shares', dataIndex: 'tradedShares', width: 150, render: (value) => Number(value).toLocaleString(undefined, { maximumFractionDigits: 4 }) },
         { title: '买单额度', dataIndex: 'bidOrderAmount', width: 140, render: formatUsdc },
         { title: '卖单额度', dataIndex: 'askOrderAmount', width: 140, render: formatUsdc },
         { title: 'Top 5 shares 持仓', dataIndex: 'topHolders', render: (holders) => <HolderList holders={holders} /> },
@@ -100,6 +102,9 @@ const MarketBettingQuery: React.FC = () => {
             chatIds: normalizeChatIds(telegram.chatIds),
             monitorModeEnabled: Boolean(telegram.monitorModeEnabled),
             marketBettingQueryEnabled: queryBotIds.includes(config.id!),
+            copyTradingLeaderGroups: telegram.copyTradingLeaderGroups || [],
+            copyTradingCategories: telegram.copyTradingCategories || [],
+            copyTradingNotificationTypes: telegram.copyTradingNotificationTypes || [],
           },
         })
       }))

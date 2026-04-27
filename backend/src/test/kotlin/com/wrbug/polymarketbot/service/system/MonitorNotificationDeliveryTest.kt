@@ -22,6 +22,18 @@ class MonitorNotificationDeliveryTest {
     }
 
     @Test
+    fun `standard delivery should exclude market betting query bots`() {
+        val configs = listOf(
+            telegramConfigDto(id = 1L, monitorModeEnabled = false, marketBettingQueryEnabled = true),
+            telegramConfigDto(id = 2L, monitorModeEnabled = false, marketBettingQueryEnabled = false)
+        )
+
+        val filtered = filterTelegramConfigsForAudience(configs, TelegramNotificationAudience.STANDARD)
+
+        assertEquals(listOf(2L), filtered.mapNotNull { it.id })
+    }
+
+    @Test
     fun `monitor delivery should only keep monitor mode configs`() {
         val configs = listOf(
             telegramConfigDto(id = 1L, monitorModeEnabled = false),
@@ -32,6 +44,18 @@ class MonitorNotificationDeliveryTest {
         val filtered = filterTelegramConfigsForAudience(configs, TelegramNotificationAudience.MONITOR_ONLY)
 
         assertEquals(listOf(2L, 3L), filtered.mapNotNull { it.id })
+    }
+
+    @Test
+    fun `monitor delivery should exclude market betting query bots`() {
+        val configs = listOf(
+            telegramConfigDto(id = 1L, monitorModeEnabled = true, marketBettingQueryEnabled = true),
+            telegramConfigDto(id = 2L, monitorModeEnabled = true, marketBettingQueryEnabled = false)
+        )
+
+        val filtered = filterTelegramConfigsForAudience(configs, TelegramNotificationAudience.MONITOR_ONLY)
+
+        assertEquals(listOf(2L), filtered.mapNotNull { it.id })
     }
 
     @Test
@@ -46,7 +70,23 @@ class MonitorNotificationDeliveryTest {
         assertEquals(listOf(2L, 3L), filtered.mapNotNull { it.id })
     }
 
-    private fun telegramConfigDto(id: Long, monitorModeEnabled: Boolean) = NotificationConfigDto(
+    @Test
+    fun `standard fallback should still exclude query-only bots`() {
+        val configs = listOf(
+            telegramConfigDto(id = 1L, monitorModeEnabled = false, marketBettingQueryEnabled = true),
+            telegramConfigDto(id = 2L, monitorModeEnabled = true, marketBettingQueryEnabled = false)
+        )
+
+        val filtered = filterTelegramConfigsForAudience(configs, TelegramNotificationAudience.STANDARD)
+
+        assertEquals(listOf(2L), filtered.mapNotNull { it.id })
+    }
+
+    private fun telegramConfigDto(
+        id: Long,
+        monitorModeEnabled: Boolean,
+        marketBettingQueryEnabled: Boolean = false
+    ) = NotificationConfigDto(
         id = id,
         type = "telegram",
         name = "bot-$id",
@@ -55,7 +95,8 @@ class MonitorNotificationDeliveryTest {
             TelegramConfigData(
                 botToken = "token-$id",
                 chatIds = listOf("chat-$id"),
-                monitorModeEnabled = monitorModeEnabled
+                monitorModeEnabled = monitorModeEnabled,
+                marketBettingQueryEnabled = marketBettingQueryEnabled
             )
         )
     )

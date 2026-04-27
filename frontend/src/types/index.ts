@@ -50,6 +50,7 @@ export interface MarketBettingOutcomeDetail {
   name: string
   tokenId: string
   odds: string
+  tradedShares: string
   bidOrderAmount: string
   askOrderAmount: string
   topHolders: MarketBettingHolder[]
@@ -59,6 +60,7 @@ export interface MarketBettingHolder {
   wallet: string
   name?: string | null
   shares: string
+  profileUrl: string
 }
 
 /**
