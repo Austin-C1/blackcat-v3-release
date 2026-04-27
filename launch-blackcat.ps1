@@ -3,6 +3,7 @@ $backendScript = Join-Path $rootDir 'start-blackcat-backend.ps1'
 $frontendDir = Join-Path $rootDir 'frontend'
 $frontendUrl = 'http://127.0.0.1:18880'
 $frontendLoginUrl = "$frontendUrl/login"
+$frontendApiReadyUrl = "$frontendUrl/api/auth/check-first-use"
 $databasePort = 13307
 $databaseContainerName = 'blackcat-v1-mysql'
 $databaseImage = 'mysql:8.1'
@@ -11,7 +12,8 @@ $databaseName = 'blackcat_v1'
 $databasePassword = 'change-me'
 $dockerDesktopExe = 'C:\Program Files\Docker\Docker\Docker Desktop.exe'
 $backendPort = 8000
-$backendReadyUrl = "http://127.0.0.1:$backendPort/api/auth/check-first-use"
+$backendUrl = "http://127.0.0.1:$backendPort"
+$backendReadyUrl = "$backendUrl/api/auth/check-first-use"
 $frontendPort = 18880
 $backendStartupTimeoutSeconds = 180
 $frontendOutLog = Join-Path $rootDir 'frontend-live.out.log'
@@ -24,6 +26,38 @@ $localConfig = Join-Path $rootDir 'config\local.env.ps1'
 
 if (Test-Path $localConfig) {
     . $localConfig
+}
+
+function Write-Status {
+    param([string]$Message)
+    Write-Host "[BlackCat] $Message"
+}
+
+function Fail-Launch {
+    param([string]$Message)
+
+    Write-Host ''
+    Write-Host "[BlackCat] Launch failed: $Message" -ForegroundColor Red
+    Write-Host "[BlackCat] Logs: $rootDir"
+    Write-Host ''
+    Write-Host 'Press any key to close...'
+    [void][System.Console]::ReadKey($true)
+    exit 1
+}
+
+function Invoke-LaunchStep {
+    param(
+        [string]$Message,
+        [scriptblock]$Action
+    )
+
+    Write-Status $Message
+    try {
+        & $Action
+    }
+    catch {
+        Fail-Launch $_.Exception.Message
+    }
 }
 
 function Set-TrimmedEnv {
@@ -40,9 +74,7 @@ $databasePassword = ([string]$databasePassword).Trim()
     ForEach-Object { Set-TrimmedEnv -Name $_ }
 
 function Test-PortListening {
-    param(
-        [int]$Port
-    )
+    param([int]$Port)
 
     return $null -ne (Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue | Select-Object -First 1)
 }
@@ -62,6 +94,23 @@ function Wait-PortListening {
     }
 
     return $false
+}
+
+function Wait-PortFree {
+    param(
+        [int]$Port,
+        [int]$TimeoutSeconds = 20
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if (-not (Test-PortListening -Port $Port)) {
+            return $true
+        }
+        Start-Sleep -Seconds 1
+    }
+
+    return -not (Test-PortListening -Port $Port)
 }
 
 function Wait-HttpReady {
@@ -87,7 +136,25 @@ function Wait-HttpReady {
     return $false
 }
 
-function Wait-BackendReady {
+function Test-PostReady {
+    param([string]$Url)
+
+    try {
+        $response = Invoke-WebRequest `
+            -Uri $Url `
+            -Method Post `
+            -Body '{}' `
+            -ContentType 'application/json' `
+            -UseBasicParsing `
+            -TimeoutSec 5
+        return $response.StatusCode -eq 200
+    }
+    catch {
+        return $false
+    }
+}
+
+function Wait-PostReady {
     param(
         [string]$Url,
         [int]$TimeoutSeconds = 60
@@ -95,31 +162,43 @@ function Wait-BackendReady {
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
-        try {
-            $response = Invoke-WebRequest `
-                -Uri $Url `
-                -Method Post `
-                -Body '{}' `
-                -ContentType 'application/json' `
-                -UseBasicParsing `
-                -TimeoutSec 5
-            if ($response.StatusCode -eq 200) {
-                return $true
-            }
+        if (Test-PostReady -Url $Url) {
+            return $true
         }
-        catch {
-        }
-
         Start-Sleep -Seconds 1
     }
 
     return $false
 }
 
+function Stop-BlackCatFrontendServer {
+    $processes = Get-CimInstance Win32_Process |
+        Where-Object { $_.CommandLine -like '*serve-blackcat-frontend.ps1*' }
+
+    foreach ($process in $processes) {
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+
+    if ($processes) {
+        Start-Sleep -Seconds 2
+    }
+}
+
+function Stop-BlackCatBackendServer {
+    $processes = Get-CimInstance Win32_Process |
+        Where-Object { $_.Name -eq 'java.exe' -and $_.CommandLine -like '*blackcat-v3-backend*' }
+
+    foreach ($process in $processes) {
+        Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+
+    if ($processes) {
+        Start-Sleep -Seconds 3
+    }
+}
+
 function Get-NewestWriteTime {
-    param(
-        [string[]]$Paths
-    )
+    param([string[]]$Paths)
 
     $latest = Get-Date '2000-01-01'
     foreach ($path in $Paths) {
@@ -147,9 +226,7 @@ function Get-NewestWriteTime {
 }
 
 function Test-DesktopFrontendBuildAvailable {
-    param(
-        [int]$BackendPort
-    )
+    param([int]$BackendPort)
 
     if (
         -not (Test-Path $frontendDistDir) `
@@ -195,9 +272,7 @@ function Test-DockerAvailable {
 }
 
 function Wait-DockerAvailable {
-    param(
-        [int]$TimeoutSeconds = 120
-    )
+    param([int]$TimeoutSeconds = 120)
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
@@ -270,83 +345,114 @@ function Wait-DatabaseReady {
     return $false
 }
 
-if (-not (Test-Path $backendScript)) {
-    throw "Backend start script not found: $backendScript"
-}
+Invoke-LaunchStep 'Checking program files' {
+    if (-not (Test-Path $backendScript)) {
+        throw "Backend start script not found: $backendScript"
+    }
 
-if (-not (Test-Path $frontendDir)) {
-    throw "Frontend directory not found: $frontendDir"
+    if (-not (Test-Path $frontendDir)) {
+        throw "Frontend directory not found: $frontendDir"
+    }
 }
 
 $frontendMode = if (Test-DesktopFrontendBuildAvailable -BackendPort $backendPort) { 'static' } else { 'dev' }
 
-if (-not (Test-PortListening -Port $databasePort)) {
-    if (-not (Test-DockerAvailable)) {
-        if (-not (Test-Path $dockerDesktopExe)) {
-            throw "Docker Desktop not found: $dockerDesktopExe"
+Invoke-LaunchStep 'Checking database' {
+    if (-not (Test-PortListening -Port $databasePort)) {
+        if (-not (Test-DockerAvailable)) {
+            if (-not (Test-Path $dockerDesktopExe)) {
+                throw "Docker Desktop not found: $dockerDesktopExe"
+            }
+
+            Write-Status 'Starting Docker Desktop'
+            Start-Process -FilePath $dockerDesktopExe | Out-Null
         }
 
-        Start-Process -FilePath $dockerDesktopExe | Out-Null
-    }
+        if (-not (Wait-DockerAvailable -TimeoutSeconds 180)) {
+            throw 'Docker did not become available.'
+        }
 
-    if (-not (Wait-DockerAvailable -TimeoutSeconds 180)) {
-        throw 'Docker did not become available.'
-    }
+        Ensure-DatabaseContainer `
+            -ContainerName $databaseContainerName `
+            -Port $databasePort `
+            -Image $databaseImage `
+            -RootPassword $databasePassword `
+            -DatabaseName $databaseName `
+            -VolumeName $databaseVolumeName
 
-    Ensure-DatabaseContainer `
-        -ContainerName $databaseContainerName `
-        -Port $databasePort `
-        -Image $databaseImage `
-        -RootPassword $databasePassword `
-        -DatabaseName $databaseName `
-        -VolumeName $databaseVolumeName
+        if (-not (Wait-PortListening -Port $databasePort -TimeoutSeconds 90)) {
+            throw "Database did not start on port $databasePort."
+        }
 
-    if (-not (Wait-PortListening -Port $databasePort -TimeoutSeconds 90)) {
-        throw "Database did not start on port $databasePort."
-    }
-
-    if (-not (Wait-DatabaseReady -ContainerName $databaseContainerName -RootPassword $databasePassword -TimeoutSeconds 120)) {
-        throw "Database did not become ready inside container $databaseContainerName."
+        if (-not (Wait-DatabaseReady -ContainerName $databaseContainerName -RootPassword $databasePassword -TimeoutSeconds 120)) {
+            throw "Database did not become ready inside container $databaseContainerName."
+        }
     }
 }
 
-if (-not (Test-PortListening -Port $backendPort)) {
-    Start-Process -FilePath $powershellExe `
-        -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $backendScript) `
-        -WorkingDirectory $rootDir `
-        -WindowStyle Hidden | Out-Null
-}
+Invoke-LaunchStep 'Checking backend service' {
+    if ((Test-PortListening -Port $backendPort) -and -not (Test-PostReady -Url $backendReadyUrl)) {
+        Write-Status 'Backend port is occupied but unhealthy; restarting backend'
+        Stop-BlackCatBackendServer
+        if (-not (Wait-PortFree -Port $backendPort -TimeoutSeconds 20)) {
+            throw "Backend port $backendPort is still occupied."
+        }
+    }
 
-if (-not (Test-PortListening -Port $frontendPort)) {
-    if ($frontendMode -eq 'static') {
+    if (-not (Test-PortListening -Port $backendPort)) {
         Start-Process -FilePath $powershellExe `
-            -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $frontendStaticServerScript, '-Root', $frontendDistDir, '-ListenHost', '127.0.0.1', '-Port', $frontendPort.ToString()) `
+            -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $backendScript) `
             -WorkingDirectory $rootDir `
-            -RedirectStandardOutput $frontendOutLog `
-            -RedirectStandardError $frontendErrLog `
             -WindowStyle Hidden | Out-Null
     }
-    else {
-        $npmCmd = (Get-Command 'npm.cmd' -ErrorAction Stop).Source
-        Start-Process -FilePath $npmCmd `
-            -ArgumentList @('run', 'dev', '--', '--host', '127.0.0.1', '--port', '18880') `
-            -WorkingDirectory $frontendDir `
-            -RedirectStandardOutput $frontendOutLog `
-            -RedirectStandardError $frontendErrLog `
-            -WindowStyle Hidden | Out-Null
+
+    if (-not (Wait-PostReady -Url $backendReadyUrl -TimeoutSeconds $backendStartupTimeoutSeconds)) {
+        throw "Backend did not become ready at $backendReadyUrl."
     }
 }
 
-if (-not (Wait-PortListening -Port $frontendPort -TimeoutSeconds 60)) {
-    throw "Frontend did not start on port $frontendPort."
+Invoke-LaunchStep 'Checking frontend service' {
+    if ((Test-PortListening -Port $frontendPort) -and -not (Test-PostReady -Url $frontendApiReadyUrl)) {
+        Write-Status 'Frontend service is outdated or API proxy is unhealthy; restarting frontend'
+        Stop-BlackCatFrontendServer
+        if (-not (Wait-PortFree -Port $frontendPort -TimeoutSeconds 20)) {
+            throw "Frontend port $frontendPort is still occupied."
+        }
+    }
+
+    if (-not (Test-PortListening -Port $frontendPort)) {
+        if ($frontendMode -eq 'static') {
+            Start-Process -FilePath $powershellExe `
+                -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $frontendStaticServerScript, '-Root', $frontendDistDir, '-ListenHost', '127.0.0.1', '-Port', $frontendPort.ToString(), '-BackendUrl', $backendUrl) `
+                -WorkingDirectory $rootDir `
+                -RedirectStandardOutput $frontendOutLog `
+                -RedirectStandardError $frontendErrLog `
+                -WindowStyle Hidden | Out-Null
+        }
+        else {
+            $npmCmd = (Get-Command 'npm.cmd' -ErrorAction Stop).Source
+            Start-Process -FilePath $npmCmd `
+                -ArgumentList @('run', 'dev', '--', '--host', '127.0.0.1', '--port', '18880') `
+                -WorkingDirectory $frontendDir `
+                -RedirectStandardOutput $frontendOutLog `
+                -RedirectStandardError $frontendErrLog `
+                -WindowStyle Hidden | Out-Null
+        }
+    }
+
+    if (-not (Wait-PortListening -Port $frontendPort -TimeoutSeconds 60)) {
+        throw "Frontend did not start on port $frontendPort."
+    }
+
+    if (-not (Wait-HttpReady -Url $frontendLoginUrl -TimeoutSeconds 60)) {
+        throw "Frontend page did not become available at $frontendLoginUrl."
+    }
+
+    if (-not (Test-PostReady -Url $frontendApiReadyUrl)) {
+        throw "Frontend API proxy did not become ready at $frontendApiReadyUrl."
+    }
 }
 
-if (-not (Wait-BackendReady -Url $backendReadyUrl -TimeoutSeconds $backendStartupTimeoutSeconds)) {
-    throw "Backend did not become ready at $backendReadyUrl."
-}
-
-if (-not (Wait-HttpReady -Url $frontendLoginUrl -TimeoutSeconds 60)) {
-    throw "Frontend page did not become available at $frontendLoginUrl."
-}
-
+Write-Status 'Opening login page'
 Start-Process $frontendLoginUrl | Out-Null
+Write-Status 'Ready'
