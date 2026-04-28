@@ -14,7 +14,6 @@ import com.wrbug.polymarketbot.repository.SellMatchDetailRepository
 import com.wrbug.polymarketbot.repository.SellMatchRecordRepository
 import com.wrbug.polymarketbot.service.common.BlockchainService
 import com.wrbug.polymarketbot.service.common.MarketService
-import com.wrbug.polymarketbot.service.copytrading.configs.LeaderGroupControlService
 import com.wrbug.polymarketbot.service.system.TelegramNotificationService
 import com.wrbug.polymarketbot.util.CryptoUtils
 import com.wrbug.polymarketbot.util.RetrofitFactory
@@ -51,7 +50,6 @@ class OrderStatusUpdateServiceTest {
     private val marketService = mock(MarketService::class.java)
     private val telegramNotificationService = mock(TelegramNotificationService::class.java)
     private val blockchainService = mock(BlockchainService::class.java)
-    private val leaderGroupControlService = mock(LeaderGroupControlService::class.java)
     private val clobApi = mock(PolymarketClobApi::class.java)
 
     private val service = buildService()
@@ -118,8 +116,6 @@ class OrderStatusUpdateServiceTest {
             .thenAnswer { it.arguments[0] as SellMatchRecord }
 
         service.updatePendingSellOrderPrices()
-
-        verify(leaderGroupControlService, times(1)).evaluateAutoPause(99L)
         verify(retrofitFactory, never()).createClobApi(
             account.apiKey!!,
             "decrypted",
@@ -370,8 +366,7 @@ class OrderStatusUpdateServiceTest {
         trackingService = trackingService,
         marketService = marketService,
         telegramNotificationService = telegramNotificationService,
-        blockchainService = blockchainService,
-        leaderGroupControlService = leaderGroupControlService
+        blockchainService = blockchainService
     )
 
     private fun openOrder(

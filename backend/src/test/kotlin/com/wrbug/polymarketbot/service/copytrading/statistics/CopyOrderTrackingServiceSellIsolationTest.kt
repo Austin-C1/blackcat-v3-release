@@ -18,7 +18,6 @@ import com.wrbug.polymarketbot.service.common.BlockchainService
 import com.wrbug.polymarketbot.service.common.MarketService
 import com.wrbug.polymarketbot.service.common.PolymarketClobService
 import com.wrbug.polymarketbot.service.copytrading.configs.CopyTradingFilterService
-import com.wrbug.polymarketbot.service.copytrading.configs.LeaderGroupControlService
 import com.wrbug.polymarketbot.service.copytrading.orders.OrderSigningService
 import com.wrbug.polymarketbot.service.system.TelegramNotificationService
 import com.wrbug.polymarketbot.util.CryptoUtils
@@ -48,7 +47,6 @@ class CopyOrderTrackingServiceSellIsolationTest {
     private val accountRepository = mock(AccountRepository::class.java)
     private val filterService = mock(CopyTradingFilterService::class.java)
     private val leaderRepository = mock(LeaderRepository::class.java)
-    private val leaderGroupControlService = mock(LeaderGroupControlService::class.java)
     private val orderSigningService = mock(OrderSigningService::class.java)
     private val blockchainService = mock(BlockchainService::class.java)
     private val clobService = mock(PolymarketClobService::class.java)
@@ -70,7 +68,6 @@ class CopyOrderTrackingServiceSellIsolationTest {
         accountRepository = accountRepository,
         filterService = filterService,
         leaderRepository = leaderRepository,
-        leaderGroupControlService = leaderGroupControlService,
         orderSigningService = orderSigningService,
         blockchainService = blockchainService,
         clobService = clobService,
@@ -82,7 +79,7 @@ class CopyOrderTrackingServiceSellIsolationTest {
     )
 
     @Test
-    fun `processSellTrade uses the batch sell-match loader instead of per-config queries`() = runTest {
+    fun `processSellTrade skips sell matching while execution is sealed`() = runTest {
         val leaderId = 3L
         val accountId = 8L
         val first = CopyTrading(id = 1L, accountId = accountId, leaderId = leaderId, supportSell = true)
@@ -121,13 +118,13 @@ class CopyOrderTrackingServiceSellIsolationTest {
         val result = service.processSellTrade(leaderId, trade())
 
         assertTrue(result.isSuccess)
-        verify(copyOrderTrackingRepository, times(2))
+        verify(copyOrderTrackingRepository, never())
             .findUnmatchedBuyOrdersByOutcomeIndexBatch(listOf(1L, 2L), "condition-1", 0)
         verify(copyOrderTrackingRepository, never()).findUnmatchedBuyOrdersByOutcomeIndex(anyLong(), anyString(), anyInt())
     }
 
     @Test
-    fun `processSellTrade retries the batch load once when unmatched orders are initially empty`() = runTest {
+    fun `processSellTrade does not retry sell matching while execution is sealed`() = runTest {
         val leaderId = 3L
         val accountId = 8L
         val copyTrading = CopyTrading(id = 1L, accountId = accountId, leaderId = leaderId, supportSell = true)
@@ -165,7 +162,7 @@ class CopyOrderTrackingServiceSellIsolationTest {
         val result = service.processSellTrade(leaderId, trade())
 
         assertTrue(result.isSuccess)
-        verify(copyOrderTrackingRepository, times(2))
+        verify(copyOrderTrackingRepository, never())
             .findUnmatchedBuyOrdersByOutcomeIndexBatch(listOf(1L), "condition-1", 0)
     }
 

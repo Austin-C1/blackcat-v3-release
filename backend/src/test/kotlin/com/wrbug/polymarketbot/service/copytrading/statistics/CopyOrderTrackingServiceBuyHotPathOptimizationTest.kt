@@ -26,7 +26,6 @@ import com.wrbug.polymarketbot.service.common.BlockchainService
 import com.wrbug.polymarketbot.service.common.MarketService
 import com.wrbug.polymarketbot.service.common.PolymarketClobService
 import com.wrbug.polymarketbot.service.copytrading.configs.CopyTradingFilterService
-import com.wrbug.polymarketbot.service.copytrading.configs.LeaderGroupControlService
 import com.wrbug.polymarketbot.service.copytrading.orders.OrderSigningService
 import com.wrbug.polymarketbot.service.system.TelegramNotificationService
 import com.wrbug.polymarketbot.util.CryptoUtils
@@ -54,9 +53,7 @@ class CopyOrderTrackingServiceBuyHotPathOptimizationTest {
     private val copyTradingRepository = mock(CopyTradingRepository::class.java)
     private val copyTradingFollowRuleRepository = mock(CopyTradingFollowRuleRepository::class.java)
     private val accountRepository = mock(AccountRepository::class.java)
-    private val leaderRepository = mock(LeaderRepository::class.java)
-    private val leaderGroupControlService = mock(LeaderGroupControlService::class.java)
-    private val orderSigningService = mock(OrderSigningService::class.java)
+    private val leaderRepository = mock(LeaderRepository::class.java)    private val orderSigningService = mock(OrderSigningService::class.java)
     private val blockchainService = mock(BlockchainService::class.java)
     private val clobService = mock(PolymarketClobService::class.java)
     private val retrofitFactory = mock(RetrofitFactory::class.java)
@@ -67,7 +64,7 @@ class CopyOrderTrackingServiceBuyHotPathOptimizationTest {
     private val clobApi = mock(PolymarketClobApi::class.java)
 
     @Test
-    fun `processBuyTrade loads current positions once per account and passes snapshots into filters`() = runTest {
+    fun `processBuyTrade skips auto order work while execution is sealed`() = runTest {
         val account = demoAccount()
         val first = demoCopyTrading(id = 1L, accountId = account.id!!)
         val second = demoCopyTrading(id = 2L, accountId = account.id!!)
@@ -102,7 +99,7 @@ class CopyOrderTrackingServiceBuyHotPathOptimizationTest {
 
         assertTrue(result.isSuccess)
         verify(accountService, never()).getAllPositions()
-        verify(blockchainService, times(1)).getPositions(account.proxyAddress)
+        verify(blockchainService, never()).getPositions(account.proxyAddress)
     }
 
     @Test
@@ -145,9 +142,7 @@ class CopyOrderTrackingServiceBuyHotPathOptimizationTest {
         copyTradingFollowRuleRepository = copyTradingFollowRuleRepository,
         accountRepository = accountRepository,
         filterService = filterService,
-        leaderRepository = leaderRepository,
-        leaderGroupControlService = leaderGroupControlService,
-        orderSigningService = orderSigningService,
+        leaderRepository = leaderRepository,        orderSigningService = orderSigningService,
         blockchainService = blockchainService,
         clobService = clobService,
         retrofitFactory = retrofitFactory,

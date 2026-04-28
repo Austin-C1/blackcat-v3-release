@@ -2,6 +2,7 @@ $rootDir = (Resolve-Path (Split-Path -Parent $MyInvocation.MyCommand.Path)).Path
 $backendDir = Join-Path $rootDir 'backend'
 $javaExe = Join-Path $rootDir '.tools\jdk-17.0.18+8\bin\java.exe'
 $jarFile = Get-ChildItem -Path (Join-Path $backendDir 'build\libs') -Filter 'blackcat-v3-backend-*.jar' -File |
+    Where-Object { $_.Name -notlike '*-plain.jar' } |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 $jarPath = if ($jarFile) { $jarFile.FullName } else { Join-Path $backendDir 'build\libs\blackcat-v3-backend.jar' }

@@ -40,8 +40,14 @@ function Fail-Launch {
     Write-Host "[BlackCat] Launch failed: $Message" -ForegroundColor Red
     Write-Host "[BlackCat] Logs: $rootDir"
     Write-Host ''
-    Write-Host 'Press any key to close...'
-    [void][System.Console]::ReadKey($true)
+    if ([System.Environment]::UserInteractive -and -not [System.Console]::IsInputRedirected) {
+        Write-Host 'Press any key to close...'
+        try {
+            [void][System.Console]::ReadKey($true)
+        }
+        catch {
+        }
+    }
     exit 1
 }
 
@@ -69,6 +75,20 @@ function Set-TrimmedEnv {
     }
 }
 
+function Get-TrimmedString {
+    param([object]$Value)
+
+    if ($null -eq $Value) {
+        return $null
+    }
+
+    return ([string]$Value).Trim()
+}
+
+$databaseContainerName = Get-TrimmedString $databaseContainerName
+$databaseImage = Get-TrimmedString $databaseImage
+$databaseVolumeName = Get-TrimmedString $databaseVolumeName
+$databaseName = Get-TrimmedString $databaseName
 $databasePassword = ([string]$databasePassword).Trim()
 @('DB_URL', 'DB_USERNAME', 'DB_PASSWORD', 'JWT_SECRET', 'ENCRYPTION_KEY', 'ADMIN_RESET_PASSWORD_KEY') |
     ForEach-Object { Set-TrimmedEnv -Name $_ }
@@ -230,22 +250,22 @@ function Test-DesktopFrontendBuildAvailable {
 
     if (
         -not (Test-Path $frontendDistDir) `
-        -or -not (Test-Path $frontendDistMarker) `
         -or -not (Test-Path $frontendStaticServerScript) `
         -or -not (Test-Path (Join-Path $frontendDistDir 'index.html'))
     ) {
         return $false
     }
 
-    try {
-        $marker = Get-Content -Path $frontendDistMarker -Raw | ConvertFrom-Json
-    }
-    catch {
-        return $false
-    }
-
-    if ($marker.apiUrl -ne "http://127.0.0.1:$BackendPort" -or $marker.wsUrl -ne "ws://127.0.0.1:$BackendPort") {
-        return $false
+    if (Test-Path $frontendDistMarker) {
+        try {
+            $marker = Get-Content -Path $frontendDistMarker -Raw | ConvertFrom-Json
+            if ($marker.apiUrl -ne "http://127.0.0.1:$BackendPort" -or $marker.wsUrl -ne "ws://127.0.0.1:$BackendPort") {
+                return $false
+            }
+        }
+        catch {
+            return $false
+        }
     }
 
     $sourceLatest = Get-NewestWriteTime -Paths @(

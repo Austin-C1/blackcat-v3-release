@@ -15,7 +15,6 @@ import com.wrbug.polymarketbot.service.common.BlockchainService
 import com.wrbug.polymarketbot.service.common.MarketService
 import com.wrbug.polymarketbot.service.common.PolymarketClobService
 import com.wrbug.polymarketbot.service.copytrading.configs.CopyTradingFilterService
-import com.wrbug.polymarketbot.service.copytrading.configs.LeaderGroupControlService
 import com.wrbug.polymarketbot.service.copytrading.orders.OrderSigningService
 import com.wrbug.polymarketbot.service.system.TelegramNotificationService
 import com.wrbug.polymarketbot.util.CryptoUtils
@@ -38,7 +37,6 @@ class CopyOrderTrackingServiceAutoPauseTriggerTest {
     private val accountRepository = mock(AccountRepository::class.java)
     private val filterService = mock(CopyTradingFilterService::class.java)
     private val leaderRepository = mock(LeaderRepository::class.java)
-    private val leaderGroupControlService = mock(LeaderGroupControlService::class.java)
     private val orderSigningService = mock(OrderSigningService::class.java)
     private val blockchainService = mock(BlockchainService::class.java)
     private val clobService = mock(PolymarketClobService::class.java)
@@ -59,7 +57,6 @@ class CopyOrderTrackingServiceAutoPauseTriggerTest {
         accountRepository = accountRepository,
         filterService = filterService,
         leaderRepository = leaderRepository,
-        leaderGroupControlService = leaderGroupControlService,
         orderSigningService = orderSigningService,
         blockchainService = blockchainService,
         clobService = clobService,
@@ -81,8 +78,6 @@ class CopyOrderTrackingServiceAutoPauseTriggerTest {
             trade = trade(side = "BUY"),
             source = "activity-ws"
         )
-
-        verifyNoInteractions(leaderGroupControlService)
     }
 
     @Test
@@ -94,8 +89,6 @@ class CopyOrderTrackingServiceAutoPauseTriggerTest {
             leaderId = 3L,
             trade = trade(side = "SELL")
         )
-
-        verifyNoInteractions(leaderGroupControlService)
     }
 
     private fun trade(side: String) = TradeResponse(
